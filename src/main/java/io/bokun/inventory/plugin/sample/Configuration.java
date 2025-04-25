@@ -21,6 +21,18 @@ public final class Configuration {
     String username;
     String password;
 
+        public static String getBokunAccessKey() {
+        return System.getenv("BOKUN_ACCESS_KEY");
+    }
+    
+    public static String getBokunSecretKey() {
+        return System.getenv("BOKUN_SECRET_KEY");
+    }
+    
+    public static String getBokunApiBaseUrl() {
+        return System.getenv().getOrDefault("BOKUN_API_URL", "https://api.bokun.io");
+    }
+
     private static void setParameterValue(String parameterName, String parameterValue, Configuration configuration) {
         switch (parameterName) {
             case SAMPLE_API_SCHEME: configuration.scheme = parameterValue; break;

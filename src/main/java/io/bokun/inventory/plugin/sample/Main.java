@@ -47,7 +47,7 @@ public class Main {
     /**
      * All environment variables will have this prefix.
      */
-    private static final String ENVIRONMENT_PREFIX = "SAMPLE_";
+    private static final String ENVIRONMENT_PREFIX = "VISTRA_";
 
     @SuppressWarnings("rawtypes")
     private static final ServerCall.Listener NOOP_LISTENER = new ServerCall.Listener() {};
@@ -192,6 +192,12 @@ public class Main {
      */
     public static void main(String[] args) throws IOException, InterruptedException {
         log.info("Starting server...");
+
+        if (Configuration.getBokunAccessKey() == null || Configuration.getBokunSecretKey() == null) {
+            System.err.println("ERROR: Missing Bokun API credentials. Please set BOKUN_ACCESS_KEY and BOKUN_SECRET_KEY environment variables.");
+            System.exit(1);
+        }
+
         boolean isRest = (args.length == 1) && "-rest".equals(args[0]);
         boolean isGrpc = (args.length == 1) && "-grpc".equals(args[0]);
 
@@ -211,23 +217,23 @@ public class Main {
         }
         if (isRest) {
             Undertow.builder()
-                    .addHttpListener(server.port, "localhost")
-                    .setHandler(
-                            new RoutingHandler()
-                                    .get("/plugin/definition", server.restService::getDefinition)
-                                    .post("/product/search", new BlockingHandler(server.restService::searchProducts))
-                                    .post("/product/getById", new BlockingHandler(server.restService::getProductById))
-                                    .post("/product/getAvailable", new BlockingHandler(server.restService::getAvailableProducts))
-                                    .post("/product/getAvailability", new BlockingHandler(server.restService::getProductAvailability))
-                                    .post("/booking/reserve", new BlockingHandler(server.restService::createReservation))
-                                    .post("/booking/cancelReserve", new BlockingHandler(server.restService::cancelReservation))
-                                    .post("/booking/confirm", new BlockingHandler(server.restService::confirmBooking))
-                                    .post("/booking/createAndConfirm", new BlockingHandler(server.restService::createAndConfirmBooking))
-                                    .post("/booking/cancel", new BlockingHandler(server.restService::cancelBooking))
-                                    .post("/booking/amend", new BlockingHandler(server.restService::amendBooking))
-                    )
-                    .build()
-                    .start();
+                .addHttpListener(server.port, "0.0.0.0")
+                .setHandler(
+                        new RoutingHandler()
+                                .get("/plugin/definition", server.restService::getDefinition)
+                                .post("/product/search", new BlockingHandler(server.restService::searchProducts))
+                                .post("/product/getById", new BlockingHandler(server.restService::getProductById))
+                                .post("/product/getAvailable", new BlockingHandler(server.restService::getAvailableProducts))
+                                .post("/product/getAvailability", new BlockingHandler(server.restService::getProductAvailability))
+                                .post("/booking/reserve", new BlockingHandler(server.restService::createReservation))
+                                .post("/booking/cancelReserve", new BlockingHandler(server.restService::cancelReservation))
+                                .post("/booking/confirm", new BlockingHandler(server.restService::confirmBooking))
+                                .post("/booking/createAndConfirm", new BlockingHandler(server.restService::createAndConfirmBooking))
+                                .post("/booking/cancel", new BlockingHandler(server.restService::cancelBooking))
+                                .post("/booking/amend", new BlockingHandler(server.restService::amendBooking))
+                )
+                .build()
+                .start();
             log.info("Started REST service on port {}", server.port);
         }
     }

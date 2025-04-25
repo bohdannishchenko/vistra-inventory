@@ -57,7 +57,7 @@ def jsonName = "${jar.baseName}-${buildNumber}.json"
 def dockerName = "${group}/${jar.baseName}:${buildNumber}"
 def jarName = "${jar.baseName}.jar"
 
-AWSCredentials awsCredentials = DefaultAWSCredentialsProviderChain.getInstance().credentials;
+//AWSCredentials awsCredentials = DefaultAWSCredentialsProviderChain.getInstance().credentials;
 
 repositories {
     maven {
@@ -84,6 +84,9 @@ dependencies {
     compile 'com.google.inject:guice:4.2.2'
     compile 'io.netty:netty-tcnative-boringssl-static:2.0.1.Final'
     compile 'io.undertow:undertow-core:2.0.19.Final'
+    compile 'javax.json:javax.json-api:1.1.4'
+    compile 'org.glassfish:javax.json:1.1.4'
+
 
     testCompile group: 'junit', name: 'junit', version:'4.12'
 }

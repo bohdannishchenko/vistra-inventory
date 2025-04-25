@@ -1,22 +1,44 @@
 package io.bokun.inventory.plugin.sample;
 
 import java.io.*;
+import java.net.HttpURLConnection;
 import java.time.*;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.stream.Collectors;
+import java.net.URL;
+import java.security.InvalidKeyException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.*;
+import java.security.NoSuchAlgorithmException;
 
 import javax.annotation.*;
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+import javax.json.Json;
+import javax.json.JsonArray;
+import javax.json.JsonArrayBuilder;
+import javax.json.JsonNumber;
+import javax.json.JsonObject;
+import javax.json.JsonObjectBuilder;
+import javax.json.JsonReader;
+import javax.json.JsonWriter;
+import javax.json.JsonValue;
 
 import com.google.common.collect.*;
 import com.google.gson.*;
 import com.google.inject.*;
 import com.squareup.okhttp.*;
 import io.bokun.inventory.plugin.api.rest.*;
+import io.bokun.inventory.plugin.api.rest.Address;
 import io.undertow.server.*;
 import org.slf4j.*;
 
 import static io.bokun.inventory.plugin.api.rest.PluginCapability.*;
 import static io.undertow.util.Headers.*;
 import static java.util.concurrent.TimeUnit.*;
+
 
 /**
  * The actual Inventory Service API implementation.
@@ -31,6 +53,16 @@ public class SampleRestPlugin {
      * Default OkHttp read timeout: how long to wait (in seconds) for the backend to respond to requests.
      */
     private static final long DEFAULT_READ_TIMEOUT = 30L;
+
+    private static final String ORG_PID = "982127";
+    private static final String TARGET_PID = "1016497";
+    private static final String VENDOR_ID = "98806";
+
+    private static final String HMAC_SHA1_ALGORITHM = "HmacSHA1";   
+    private static final String LOG_FILE = "bokun_plugin_errors.log";
+    
+    private static final DateTimeFormatter UTC_DATE_FORMATTER = 
+        DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneOffset.UTC);
 
     private final OkHttpClient client;
 
@@ -63,16 +95,15 @@ public class SampleRestPlugin {
      */
     public void getDefinition(@Nonnull HttpServerExchange exchange) {
         PluginDefinition definition = new PluginDefinition();
-        definition.setName("Sample REST plugin");
-        definition.setDescription("Provides availability and accepts bookings into <YourCompany> booking system. Uses REST protocol");
+        definition.setName("VISTRA Inventory api plugin");
+        definition.setDescription("Provides availability and accepts bookings into <The Digital Mastery Acadent> booking system. Uses REST protocol");
 
         definition.getCapabilities().add(AVAILABILITY);
 
         // below entry should be commented out if the plugin only supports reservation & confirmation as a single step
-        definition.getCapabilities().add(RESERVATIONS);
-
-        definition.getCapabilities().add(RESERVATION_CANCELLATION);
-        definition.getCapabilities().add(AMENDMENT);
+        // definition.getCapabilities().add(RESERVATIONS);
+        // definition.getCapabilities().add(RESERVATION_CANCELLATION);
+        // definition.getCapabilities().add(AMENDMENT);
 
         // reuse parameter names from grpc
         definition.getParameters().add(asRequiredStringParameter(Configuration.SAMPLE_API_SCHEME));    // e.g. https
@@ -89,121 +120,479 @@ public class SampleRestPlugin {
     /**
      * This method should list all your products
      */
+    // Enhanced error logging
+    private void logError(String message, Throwable throwable) {
+        String errorId = generateErrorId();
+        String timestamp = LocalDateTime.now().format(UTC_DATE_FORMATTER);
+        String stackTrace = getStackTraceAsString(throwable);
+        
+        // Console logging
+        System.err.printf("[%s] [%s] %s\n%s\n", 
+            timestamp, errorId, message, stackTrace);
+        
+        // File logging
+        try {
+            Files.write(
+                Paths.get(LOG_FILE),
+                String.format(
+                    "---- [%s] [%s] ----\n" +
+                    "Message: %s\n" +
+                    "Exception: %s\n" +
+                    "Stack Trace:\n%s\n\n",
+                    timestamp,
+                    errorId,
+                    message,
+                    throwable.toString(),
+                    stackTrace
+                ).getBytes(),
+                StandardOpenOption.CREATE, 
+                StandardOpenOption.APPEND
+            );
+        } catch (IOException ioException) {
+            System.err.println("Failed to write to error log: " + ioException.getMessage());
+        }
+    }
+
+    private String generateErrorId() {
+        return UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+    }
+
+    private String getStackTraceAsString(Throwable throwable) {
+        StringWriter sw = new StringWriter();
+        throwable.printStackTrace(new PrintWriter(sw));
+        return sw.toString();
+    }
+
+    private String readStream(InputStream is) throws IOException {
+        StringBuilder sb = new StringBuilder();
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(is))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                sb.append(line);
+            }
+        }
+        return sb.toString();
+    }
+
+    private HttpURLConnection createHttpConnection(String method, String endpoint) throws IOException, NoSuchAlgorithmException, InvalidKeyException {
+        // Build full URL
+        String fullUrl = Configuration.getBokunApiBaseUrl() + endpoint;
+        
+        // Create connection
+        HttpURLConnection connection = (HttpURLConnection) new URL(fullUrl).openConnection();
+        
+        // Generate authentication headers
+        String date = Instant.now().atOffset(ZoneOffset.UTC).format(UTC_DATE_FORMATTER);
+        String signature = generateSignature(
+            method, 
+            endpoint, 
+            date
+        );
+        
+        // Set request properties
+        connection.setRequestMethod(method);
+        connection.setRequestProperty("X-Bokun-Date", date);
+        connection.setRequestProperty("X-Bokun-AccessKey", Configuration.getBokunAccessKey());
+        connection.setRequestProperty("X-Bokun-Signature", signature);
+        connection.setRequestProperty("Content-Type", "application/json");
+        connection.setRequestProperty("Accept", "application/json");
+        
+        // Only set DoOutput for methods that send request bodies
+        if ("POST".equalsIgnoreCase(method) || "PUT".equalsIgnoreCase(method)) {
+            connection.setDoOutput(true);
+        }
+        
+        return connection;
+    }
+
+    // Enhanced API error handling
+    private void handleApiError(HttpURLConnection connection) throws IOException {
+        String errorResponse = "No error details available";
+        String errorId = generateErrorId();
+        
+        try (InputStream errorStream = connection.getErrorStream()) {
+            if (errorStream != null) {
+                errorResponse = readStream(errorStream);
+            }
+        } catch (Exception e) {
+            logError("Failed to read error stream", e);
+        }
+        
+        String errorMessage = String.format(
+            "Bokun API Error [%s]\n" +
+            "HTTP Status: %d\n" +
+            "Response: %s",
+            errorId,
+            connection.getResponseCode(),
+            errorResponse
+        );
+        
+        logError(errorMessage, null);
+        throw new RuntimeException("API_ERROR_" + errorId);
+    }
+
+    public static String generateSignature(
+        String httpMethod,
+        String apiPath,
+        String date
+    ) throws NoSuchAlgorithmException, InvalidKeyException {
+                
+        // 2. Create the message to sign
+        String message = date + Configuration.getBokunAccessKey() + httpMethod + apiPath;
+        
+        System.out.println(httpMethod + " " + apiPath);
+
+        // 3. Create HMAC-SHA1 key
+        SecretKeySpec signingKey = new SecretKeySpec(
+            Configuration.getBokunSecretKey().getBytes(StandardCharsets.UTF_8),
+            HMAC_SHA1_ALGORITHM
+        );
+        
+        // 4. Calculate HMAC-SHA1 signature
+        Mac mac = Mac.getInstance(HMAC_SHA1_ALGORITHM);
+        mac.init(signingKey);
+        byte[] rawHmac = mac.doFinal(message.getBytes(StandardCharsets.UTF_8));
+        
+        // 5. Base64 encode the result
+        return Base64.getEncoder().encodeToString(rawHmac);
+    }
+
     public void searchProducts(@Nonnull HttpServerExchange exchange) {
-        SearchProductRequest request = new Gson().fromJson(new InputStreamReader(exchange.getInputStream()), SearchProductRequest.class);
-        Configuration configuration = Configuration.fromRestParameters(request.getParameters());
+        log.trace("In ::searchProducts");
 
-        // At this point you might want to call your external system to do the actual search and return data back.
-        // Code below just provides some mocks.
+        try {
+            // 1. Parse request
+            SearchProductRequest request = new Gson().fromJson(
+                new InputStreamReader(exchange.getInputStream(), StandardCharsets.UTF_8),
+                SearchProductRequest.class
+            );
 
-        // Do something with httpResponseBody, e.g. convert this JSON into POJO and convert that POJO into BasicProductInfo
-        // Don't forget to filter them by country and city, based on request parameters.
-        BasicProductInfo basicProductInfo = new BasicProductInfo();     // you will likely want to run this in a loop, to return multiple products
-        basicProductInfo.setId("123");
-        basicProductInfo.setName("Mock product");
-        basicProductInfo.setDescription("Mock product description");
-        basicProductInfo.setPricingCategories(new ArrayList<>());
-        {
-            PricingCategory adult = new PricingCategory();
-            adult.setId("ADT");         // can be any code as long as it is unique per pricing category. This will also connect with other calls
-            adult.setLabel("Adult");
-            basicProductInfo.getPricingCategories().add(adult);
+            // 2. Fetch products
+            List<BasicProductInfo> products = fetchBokunProducts(request);
+            
+            // 3. Filter out test product
+            products.removeIf(p -> !ORG_PID.equals(p.getId()));
+
+            // 4. Send response
+            exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json");
+            exchange.getResponseSender().send(new Gson().toJson(products));
+
+        } catch (IllegalArgumentException e) {
+            exchange.setStatusCode(400);
+            exchange.getResponseSender().send("{\"error\":\"" + e.getMessage() + "\"}");
+        } catch (Exception e) {
+            logError("Error while searching products: ", e);
+            exchange.setStatusCode(500);
+            exchange.getResponseSender().send("{\"error\":\"Internal server error\"}");
         }
-        {
-            PricingCategory child = new PricingCategory();
-            child.setId("CHD");
-            child.setLabel("Child");
-            basicProductInfo.getPricingCategories().add(child);
+
+        log.trace("Out ::searchProducts");
+    }
+
+    private List<BasicProductInfo> parseResponse(InputStream inputStream) {
+        List<BasicProductInfo> products = new ArrayList<>();
+        
+        try (JsonReader reader = Json.createReader(inputStream)) {
+            JsonObject response = reader.readObject();
+            JsonArray items = response.getJsonArray("items");
+            
+            for (JsonValue item : items) {
+                JsonObject activity = (JsonObject) item;
+                BasicProductInfo product = new BasicProductInfo();
+                
+                // Required fields
+                product.setId(activity.getString("id"));
+                product.setName(activity.getString("title"));
+                product.setDescription(activity.getString("summary", ""));
+                
+                // Pricing categories (default to Adult/Child if none specified)
+                product.setPricingCategories(new ArrayList<>());
+                PricingCategory adult = new PricingCategory();
+                adult.setId("ADULT");
+                adult.setLabel("Adult");
+                
+                PricingCategory child = new PricingCategory();
+                child.setId("CHILD");
+                child.setLabel("Child");
+                
+                product.getPricingCategories().add(adult);
+                product.getPricingCategories().add(child);
+                
+                // Location information
+                List<String> cities = new ArrayList<>();
+                List<String> countries = new ArrayList<>();
+                
+                if (activity.containsKey("locationCode")) {
+                    JsonObject location = activity.getJsonObject("locationCode");
+                    countries.add(location.getString("country", ""));
+                }
+                
+                if (activity.containsKey("googlePlace")) {
+                    JsonObject place = activity.getJsonObject("googlePlace");
+                    String city = place.getString("city", "");
+                    if (!city.isEmpty()) {
+                        cities.add(city);
+                    }
+                    // Use country from googlePlace if locationCode not available
+                    if (countries.isEmpty()) {
+                        countries.add(place.getString("countryCode", ""));
+                    }
+                }
+                
+                product.setCities(cities);
+                product.setCountries(countries);
+                
+                products.add(product);
+            }
+        }
+        
+        return products;
+    }
+
+    private List<BasicProductInfo> fetchBokunProducts(SearchProductRequest request) throws IOException, InvalidKeyException, NoSuchAlgorithmException {
+        // Build base URL
+        StringBuilder pathBuilder = new StringBuilder("/activity.json/search");
+
+        HttpURLConnection connection = createHttpConnection("POST", pathBuilder.toString());
+        
+        JsonObjectBuilder textFilterBuilder = Json.createObjectBuilder()
+            .add("operator", "string")
+            .add("searchExternalId", true)
+            .add("searchFullText", true)
+            .add("searchKeywords", true)
+            .add("searchTitle", true)
+            .add("wildcard", true);
+        
+        if (request.getProductName() != null && !request.getProductName().isEmpty()) {
+            textFilterBuilder.add("text", request.getProductName());
+        } else {
+            textFilterBuilder.add("text", "");
         }
 
-        basicProductInfo.setCities(ImmutableList.of("London"));
-        basicProductInfo.setCountries(ImmutableList.of("GB"));
+        JsonObjectBuilder requestBuilder = Json.createObjectBuilder()
+            .add("textFilter", textFilterBuilder);
+                    
+        requestBuilder.add("vendorId", VENDOR_ID);
 
-        exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json; charset=utf-8");
-        exchange.getResponseSender().send(new Gson().toJson(Lists.newArrayList(basicProductInfo)));
+        // Write request body
+        try (OutputStream os = connection.getOutputStream();
+            JsonWriter writer = Json.createWriter(os)) {
+            writer.writeObject(requestBuilder.build());
+        }
+
+        // 4. Process the response
+        try {
+            if (connection.getResponseCode() == 200) {
+                return parseResponse(connection.getInputStream());
+            } else {
+                throw new IOException("API request failed: " + connection.getResponseCode() + 
+                    " - " + readErrorStream(connection));
+            }
+        } finally {
+            connection.disconnect();
+        }
+    }
+
+    private String readErrorStream(HttpURLConnection connection) throws IOException {
+        try (InputStream es = connection.getErrorStream();
+             BufferedReader reader = new BufferedReader(new InputStreamReader(es))) {
+            return reader.lines().collect(Collectors.joining("\n"));
+        }
     }
 
     /**
      * Return detailed information about one particular product by given ID.
      */
+     private ProductDescription parseProductDescription(InputStream inputStream) throws IOException {
+        try (JsonReader reader = Json.createReader(inputStream)) {
+            JsonObject productJson = reader.readObject();
+            ProductDescription product = new ProductDescription();
+            
+            // Basic information
+            // Handle numeric ID
+            if (productJson.containsKey("id")) {
+                JsonValue idValue = productJson.get("id");
+                if (idValue.getValueType() == JsonValue.ValueType.NUMBER) {
+                    product.setId(String.valueOf(((JsonNumber)idValue).intValue()));
+                } else {
+                    product.setId(productJson.getString("id", ""));
+                }
+            }
+            product.setName(productJson.getString("title"));
+            product.setDescription(productJson.getString("description", ""));
+            
+            // Pricing categories
+            if (productJson.containsKey("pricingCategories")) {
+                List<PricingCategory> categories = new ArrayList<>();
+                for (JsonValue cat : productJson.getJsonArray("pricingCategories")) {
+                    JsonObject category = (JsonObject) cat;
+                    PricingCategory pc = new PricingCategory();
+                    
+                    // Handle numeric ID
+                    if (category.containsKey("id")) {
+                        JsonValue idValue = category.get("id");
+                        if (idValue.getValueType() == JsonValue.ValueType.NUMBER) {
+                            pc.setId(String.valueOf(((JsonNumber)idValue).intValue()));
+                        } else {
+                            pc.setId(productJson.getString("id", ""));
+                        }
+                    }
+
+                    pc.setLabel(category.getString("title"));
+                    pc.setMinAge(category.getInt("minAge", 0));
+                    pc.setMaxAge(category.getInt("maxAge", 0));
+                    categories.add(pc);
+                }
+                product.setPricingCategories(categories);
+            }
+            
+            // Rates
+            if (productJson.containsKey("rates")) {
+                List<Rate> rates = new ArrayList<>();
+                for (JsonValue rate : productJson.getJsonArray("rates")) {
+                    JsonObject rateJson = (JsonObject) rate;
+                    Rate r = new Rate();
+
+                    if (rateJson.containsKey("id")) {
+                        JsonValue idValue = rateJson.get("id");
+                        if (idValue.getValueType() == JsonValue.ValueType.NUMBER) {
+                            r.setId(String.valueOf(((JsonNumber)idValue).intValue()));
+                        } else {
+                            r.setId(productJson.getString("id", ""));
+                        }
+                    }
+
+                    r.setLabel(rateJson.getString("title"));
+                    rates.add(r);
+                }
+                product.setRates(rates);
+            }
+            
+            // Location information
+            if (productJson.containsKey("locationCode")) {
+                JsonObject location = productJson.getJsonObject("locationCode");
+                product.setCountries(Collections.singletonList(location.getString("country", "")));
+            }
+            
+            if (productJson.containsKey("googlePlace")) {
+                JsonObject place = productJson.getJsonObject("googlePlace");
+                product.setCities(Collections.singletonList(place.getString("city", "")));
+            }
+            
+            // Booking information
+            if (productJson.containsKey("bookingType")) {
+                product.setBookingType(BookingType.fromValue(productJson.getString("bookingType")));
+            }
+            
+            if (productJson.containsKey("meetingType")) {
+                product.setMeetingType(MeetingType.fromValue(productJson.getString("meetingType")));
+            }
+            
+            // Pickup/dropoff information
+            if (productJson.containsKey("pickupService")) {
+                product.setDropoffAvailable(productJson.getBoolean("pickupService"));
+            }
+            
+            if (productJson.containsKey("pickupMinutesBefore")) {
+                product.setPickupMinutesBefore(productJson.getInt("pickupMinutesBefore", 0));
+            }
+            
+            if (productJson.containsKey("startPoints")) {
+                List<PickupDropoffPlace> pickupPlaces = new ArrayList<>();
+                for (JsonValue point : productJson.getJsonArray("startPoints")) {
+                    JsonObject pointJson = (JsonObject) point;
+                    PickupDropoffPlace place = new PickupDropoffPlace();
+                    place.setTitle(pointJson.getString("title", ""));
+                    
+                    if (pointJson.containsKey("address")) {
+                        JsonObject addressJson = pointJson.getJsonObject("address");
+                        Address address = new Address();
+                        address.setAddressLine1(addressJson.getString("addressLine1", ""));
+                        address.setAddressLine2(addressJson.getString("addressLine2", ""));
+                        address.setAddressLine3(addressJson.getString("addressLine3", ""));
+                        address.setCity(addressJson.getString("city", ""));
+                        address.setState(addressJson.getString("state", ""));
+                        address.setPostalCode(addressJson.getString("postalCode", ""));
+                        address.setCountryCode(addressJson.getString("countryCode", ""));
+                        
+                        // if (addressJson.containsKey("geoPoint")) {
+                        //     JsonObject geoPointJson = addressJson.getJsonObject("geoPoint");
+                        //     GeoPoint geoPoint = new GeoPoint();
+                        //     geoPoint.setLatitude(geoPointJson.getJsonNumber("lat").doubleValue());
+                        //     geoPoint.setLongitude(geoPointJson.getJsonNumber("lng").doubleValue());
+                        //     address.setGeoPoint(geoPoint);
+                        // }
+                        
+                        place.setAddress(address);
+                    }
+                    
+                    pickupPlaces.add(place);
+                }
+                product.setPickupPlaces(pickupPlaces);
+            }
+            
+            // Product category
+            if (productJson.containsKey("productCategory")) {
+                product.setProductCategory(ProductCategory.fromValue(productJson.getString("productCategory")));
+            }
+            
+            // Ticket support
+            if (productJson.containsKey("ticketPerPerson")) {
+                TicketSupport ticketSupport = productJson.getBoolean("ticketPerPerson") ? TicketSupport.TICKET_PER_PERSON :TicketSupport.TICKET_PER_BOOKING;
+                product.setTicketSupport(Collections.singletonList(ticketSupport));
+
+                // Ticket Type
+                if (productJson.containsKey("barcodeType")) {
+                    TicketType ticketType;
+                    
+                    if (productJson.getString("barcodeType").equals("QR_CODE")) 
+                        ticketType = TicketType.QR_CODE;
+                    else if (productJson.getString("barcodeType").equals("DATA_MATRIX"))
+                        ticketType = TicketType.DATA_MATRIX;
+                    else
+                        ticketType = TicketType.BINARY;
+
+                    product.setTicketType(ticketType);
+                }
+            }
+            
+            return product;
+        }
+    }
+
     public void getProductById(HttpServerExchange exchange) {
+        log.trace("In ::getProductById");
+
         GetProductByIdRequest request = new Gson().fromJson(new InputStreamReader(exchange.getInputStream()), GetProductByIdRequest.class);
         Configuration configuration = Configuration.fromRestParameters(request.getParameters());
 
-        // similar to searchProducts except this should return a single product with a bit more information
-        ProductDescription description = new ProductDescription();
-        description.setId("123");
-        description.setName("Mock product");
-        description.setDescription("Mock product description");
+        StringBuilder pathBuilder = new StringBuilder("/activity.json/").append(request.getExternalId());
+        
+        try {
+            HttpURLConnection connection = createHttpConnection("GET", pathBuilder.toString());
+            
+            try {
+                if (connection.getResponseCode() == 200) {
+                    ProductDescription product = parseProductDescription(connection.getInputStream());
+                    exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json");
+                    exchange.getResponseSender().send(new Gson().toJson(product));
+                } else {
+                    handleApiError(connection);
+                }
+            } finally {
+                connection.disconnect();  
+            }
 
-        description.setPricingCategories(new ArrayList<>());
-        {
-            PricingCategory adult = new PricingCategory();
-            adult.setId("ADT");         // can be any code as long as it is unique per pricing category. This will also connect with other calls
-            adult.setLabel("Adult");
-            description.getPricingCategories().add(adult);
-        }
-        {
-            PricingCategory child = new PricingCategory();
-            child.setId("CHD");
-            child.setLabel("Adult");
-            description.getPricingCategories().add(child);
-        }
-
-        Rate rate = new Rate();
-        rate.setId("standard");
-        rate.setLabel("Standard");
-        description.setRates(ImmutableList.of(rate));
-        description.setBookingType(BookingType.DATE_AND_TIME);
-        description.setProductCategory(ProductCategory.ACTIVITIES);
-        description.setTicketSupport(
-                ImmutableList.of(
-                        TicketSupport.TICKET_PER_BOOKING
-                )
-        );
-        description.setCities(ImmutableList.of("London"));
-        description.setCountries(ImmutableList.of("GB"));
-
-        Time startTime = new Time();
-        startTime.setHour(13);
-        startTime.setMinute(0);
-        description.setStartTimes(ImmutableList.of(startTime));
-
-        {                                                                               // opening hours block
-            OpeningHoursWeekday openingHoursMonday = new OpeningHoursWeekday();
-            openingHoursMonday.setOpen24Hours(false);
-            OpeningHoursTimeInterval mondayIntervalAM = new OpeningHoursTimeInterval();
-            mondayIntervalAM.setOpenFrom("08:00");
-            mondayIntervalAM.setOpenForHours(4);
-            mondayIntervalAM.setOpenForMinutes(0);
-            OpeningHoursTimeInterval mondayIntervalPM = new OpeningHoursTimeInterval();
-            mondayIntervalPM.setOpenFrom("13:00");
-            mondayIntervalPM.setOpenForHours(4);
-            mondayIntervalPM.setOpenForMinutes(0);
-            openingHoursMonday.setTimeIntervals(ImmutableList.of(mondayIntervalAM, mondayIntervalPM));
-            OpeningHours openingHours = new OpeningHours();
-            openingHours.setMonday(openingHoursMonday);
-            description.setAllYearOpeningHours(openingHours);
+        } catch (IllegalArgumentException e) {
+            exchange.setStatusCode(400);
+            exchange.getResponseSender().send("{\"error\":\"" + e.getMessage() + "\"}");
+        } catch (Exception e) {
+            logError("Error while searching products: ", e);
+            exchange.setStatusCode(500);
+            exchange.getResponseSender().send("{\"error\":\"Internal server error\"}");
         }
 
-        {                                                                               // extras block
-            Extra extra = new Extra();
-            extra.setId("some-extra-id");
-            extra.setTitle("Some extra title");
-            extra.setDescription("Some extra description");
-            extra.setOptional(false);
-            extra.setMaxPerBooking(1);
-            extra.setLimitByPax(false);
-            extra.setIncreasesCapacity(false);
-            description.setExtras(ImmutableList.of(extra));
-        }
-
-        description.setTicketType(TicketType.QR_CODE);
-        description.setMeetingType(MeetingType.MEET_ON_LOCATION);
-        description.setDropoffAvailable(false);
-
-        exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json; charset=utf-8");
-        exchange.getResponseSender().send(new Gson().toJson(description));
+        log.trace("Out ::getProductById");
     }
 
     /**
@@ -213,23 +602,65 @@ public class SampleRestPlugin {
      * requested period. Subsequent GetProductAvailability request will clarify precise dates and capacities.
      */
     public void getAvailableProducts(HttpServerExchange exchange) {
+        log.trace("In ::getAvailableProducts");
+
         ProductsAvailabilityRequest request = new Gson().fromJson(new InputStreamReader(exchange.getInputStream()), ProductsAvailabilityRequest.class);
         Configuration configuration = Configuration.fromRestParameters(request.getParameters());
 
         // At this point you might want to call your external system to do the actual search and return data back.
         // Code below just provides some mocks.
-
-        if (!request.getExternalProductIds().contains("123")) {
-            throw new IllegalStateException("Previous call only returned product having id=123");
+        if (!request.getExternalProductIds().contains(ORG_PID)) {
+            throw new IllegalStateException(String.format("Previous call only returned product having id=%s", ORG_PID));
+        }
+        
+        StringBuilder pathBuilder = new StringBuilder("/activity.json/").append(TARGET_PID).append("/availabilities");
+        DateYMD from = request.getRange().getFrom();
+        DateYMD to = request.getRange().getTo();
+    
+        if (from != null && to != null) {
+            pathBuilder.append(String.format("?start=%04d-%02d-%02d&end=%04d-%02d-%02d", from.getYear(), from.getMonth(), from.getDay(), 
+                                to.getYear(), to.getMonth(), to.getDay()));
         }
 
-        ProductsAvailabilityResponse response = new ProductsAvailabilityResponse();
-        response.setActualCheckDone(true);
-        response.setProductId("123");
+        try {
+            pathBuilder.append("&includeSoldOut=false");
+            HttpURLConnection connection = createHttpConnection("GET", pathBuilder.toString());
+            
+            try {
+                int statusCode = connection.getResponseCode();
 
-        exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json; charset=utf-8");
-        exchange.getResponseSender().send(new Gson().toJson(ImmutableList.of(response)));
-    }
+                if (statusCode == 200) {
+                    try (JsonReader reader = Json.createReader(connection.getInputStream())) {
+                        JsonArray productArray = reader.readArray();
+                        if (!productArray.isEmpty()) {
+                            ProductsAvailabilityResponse response = new ProductsAvailabilityResponse();
+                            response.setActualCheckDone(true);
+                            response.setProductId(ORG_PID);
+    
+                            exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json; charset=utf-8");
+                            exchange.getResponseSender().send(new Gson().toJson(ImmutableList.of(response)));
+                        } else {
+                            exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json; charset=utf-8");
+                            exchange.getResponseSender().send(new Gson().toJson(ImmutableList.of()));
+                        }
+                    }
+                } else {
+                    handleApiError(connection);
+                }
+            } finally {
+                connection.disconnect();
+            }
+        } catch (IllegalArgumentException e) {
+            exchange.setStatusCode(400);
+            exchange.getResponseSender().send("{\"error\":\"" + e.getMessage() + "\"}");
+        } catch (Exception e) {
+            logError("Error while getAvailable: ", e);
+            exchange.setStatusCode(500);
+            exchange.getResponseSender().send("{\"error\":\"Internal server error\"}");
+        }
+
+        log.trace("Out ::getAvailableProducts");
+    }   
 
     /**
      * Get availability of a particular product over a date range. This request should follow GetAvailableProducts and provide more details on
@@ -244,54 +675,123 @@ public class SampleRestPlugin {
 
         // At this point you might want to call your external system to do the actual search and return data back.
         // Code below just provides some mocks.
-
-        List<ProductAvailabilityWithRatesResponse> l = new ArrayList<>();
-        for (int i=0; i<=1; i++) {
-            ProductAvailabilityWithRatesResponse response = new ProductAvailabilityWithRatesResponse();
-            response.setCapacity(100);
-
-            LocalDate date = LocalDate.now().plusDays(i);
-            DateYMD tomorrowDate = new DateYMD();
-            tomorrowDate.setYear(date.getYear());
-            tomorrowDate.setMonth(date.getMonthValue());
-            tomorrowDate.setDay(date.getDayOfMonth());
-            response.setDate(tomorrowDate);
-
-            Time tomorrowTime = new Time();
-            tomorrowTime.setHour(13);
-            tomorrowTime.setMinute(00);
-            response.setTime(tomorrowTime);
-
-            RateWithPrice rate = new RateWithPrice();
-            rate.setRateId("standard");
-
-            PricePerPerson pricePerPerson = new PricePerPerson();
-            pricePerPerson.setPricingCategoryWithPrice(new ArrayList<>());
-            {
-                PricingCategoryWithPrice adultCategoryPrice = new PricingCategoryWithPrice();
-                adultCategoryPrice.setPricingCategoryId("ADT");
-                Price adultPrice = new Price();
-                adultPrice.setAmount("100");
-                adultPrice.setCurrency("EUR");
-                adultCategoryPrice.setPrice(adultPrice);
-                pricePerPerson.getPricingCategoryWithPrice().add(adultCategoryPrice);
+        if (!request.getProductId().equals(ORG_PID)) {
+            throw new IllegalStateException(String.format("Previous call only returned product having id=%s", ORG_PID));
+        }
+        
+        try {
+            StringBuilder pathBuilder = new StringBuilder("/activity.json/").append(TARGET_PID).append("/availabilities?lang=EN");
+            DateYMD from = request.getRange().getFrom();
+            DateYMD to = request.getRange().getTo();
+        
+            if (from != null && to != null) {
+                pathBuilder.append(String.format("&start=%04d-%02d-%02d&end=%04d-%02d-%02d", from.getYear(), from.getMonth(), from.getDay(), 
+                                    to.getYear(), to.getMonth(), to.getDay()));
             }
-            {
-                PricingCategoryWithPrice childCategoryPrice = new PricingCategoryWithPrice();
-                childCategoryPrice.setPricingCategoryId("CHD");
-                Price childPrice = new Price();
-                childPrice.setAmount("10");
-                childPrice.setCurrency("EUR");
-                childCategoryPrice.setPrice(childPrice);
-                pricePerPerson.getPricingCategoryWithPrice().add(childCategoryPrice);
+                
+            HttpURLConnection connection = createHttpConnection("GET", pathBuilder.toString());
+            
+            try {
+                if (connection.getResponseCode() == 200) {
+                    try (JsonReader reader = Json.createReader(connection.getInputStream())) {
+                        JsonArray availabilityItems = reader.readArray();
+                        List<ProductAvailabilityWithRatesResponse> responses = new ArrayList<>();
+
+                        if (!availabilityItems.isEmpty()) {
+                            for (JsonValue item : availabilityItems) {
+                                JsonObject availability = (JsonObject) item;
+                                ProductAvailabilityWithRatesResponse response = new ProductAvailabilityWithRatesResponse();
+                                
+                                // Set capacity
+                                response.setCapacity(availability.getInt("availabilityCount", 0));
+                                
+                                // Set date (convert from timestamp to DateYMD)
+                                long timestamp = availability.getJsonNumber("date").longValue();
+                                LocalDate localDate = Instant.ofEpochMilli(timestamp)
+                                    .atZone(ZoneId.systemDefault())
+                                    .toLocalDate();
+                                
+                                DateYMD dateYMD = new DateYMD()
+                                    .year(localDate.getYear())
+                                    .month(localDate.getMonthValue())
+                                    .day(localDate.getDayOfMonth());
+                                response.setDate(dateYMD);
+                                
+                                // Set time
+                                String startTime = availability.getString("startTime", "00:00");
+                                Time time = new Time()
+                                    .hour(Integer.parseInt(startTime.split(":")[0]))
+                                    .minute(Integer.parseInt(startTime.split(":")[1]));
+                                response.setTime(time);
+                                
+                                // Set rates
+                                List<RateWithPrice> rates = new ArrayList<>();
+                                JsonArray pricesByRate = availability.getJsonArray("pricesByRate");
+                                
+                                for (JsonValue priceItem : pricesByRate) {
+                                    JsonObject priceInfo = (JsonObject) priceItem;
+                                    RateWithPrice rateWithPrice = new RateWithPrice();
+                                    
+                                    // Set rate ID
+                                    rateWithPrice.setRateId(String.valueOf(priceInfo.getInt("activityRateId")));
+                                    
+                                    // Set prices per person
+                                    JsonArray pricePerCategory = priceInfo.getJsonArray("pricePerCategoryUnit");
+                                    PricePerPerson pricePerPerson = new PricePerPerson();
+                                    PricePerBooking pricePerBooking = new PricePerBooking();
+                                    
+                                    for (JsonValue priceCategory : pricePerCategory) {
+                                        JsonObject categoryPrice = (JsonObject) priceCategory;
+                                        JsonObject amount = categoryPrice.getJsonObject("amount");
+                                        
+                                        PricingCategoryWithPrice pricingCategoryWithPrice = new PricingCategoryWithPrice();
+                                        pricingCategoryWithPrice.setPricingCategoryId(categoryPrice.getJsonNumber("id").toString());
+
+                                        Price price = new Price();
+                                        price.setAmount(amount.getJsonNumber("amount").toString());
+                                        price.setCurrency(amount.getString("currency", ""));
+
+                                        pricingCategoryWithPrice.setPrice(price);
+
+                                        pricePerPerson.addPricingCategoryWithPriceItem(pricingCategoryWithPrice);
+                                    }
+                                    
+                                    // Assuming first price is the main price (adjust as needed)
+                                    if (!pricePerPerson.getPricingCategoryWithPrice().isEmpty()) {
+                                        pricePerBooking.setPrice(pricePerPerson.getPricingCategoryWithPrice().get(0).getPrice());
+                                    }
+                                    rateWithPrice.setPricePerBooking(pricePerBooking);
+                                    rateWithPrice.setPricePerPerson(pricePerPerson);
+                                    
+                                    rates.add(rateWithPrice);
+                                }
+                                
+                                response.setRates(rates);
+                                responses.add(response);
+                            }
+
+                            exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json; charset=utf-8");
+                            exchange.getResponseSender().send(new Gson().toJson(responses));
+                        } else {
+                            exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json; charset=utf-8");
+                            exchange.getResponseSender().send(new Gson().toJson(ImmutableList.of()));
+                        }
+                    }
+                }
+
+            } finally {
+                connection.disconnect();
             }
-            rate.setPricePerPerson(pricePerPerson);
-            response.setRates(ImmutableList.of(rate));
-            l.add(response);
+
+        } catch (IllegalArgumentException e) {
+            exchange.setStatusCode(400);
+            exchange.getResponseSender().send("{\"error\":\"" + e.getMessage() + "\"}");
+        } catch (Exception e) {
+            logError("Error while searching products: ", e);
+            exchange.setStatusCode(500);
+            exchange.getResponseSender().send("{\"error\":\"Internal server error\"}");
         }
 
-        exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json; charset=utf-8");
-        exchange.getResponseSender().send(new Gson().toJson(l));
         log.trace("Out ::getProductAvailability");
     }
 
@@ -305,6 +805,9 @@ public class SampleRestPlugin {
      */
     public void createReservation(HttpServerExchange exchange) {
         // body of this method can be left empty if reserve & confirm is only supported as a single step
+        ReservationRequest request = new Gson().fromJson(new InputStreamReader(exchange.getInputStream()), ReservationRequest.class);
+        Configuration configuration = Configuration.fromRestParameters(request.getParameters());
+
         log.trace("In ::createReservation");
 
         // At this point you might want to call your external system to do the actual reservation and return data back.
@@ -449,30 +952,147 @@ public class SampleRestPlugin {
      */
     public void createAndConfirmBooking(HttpServerExchange exchange) {
         log.trace("In ::createAndConfirmBooking");          // should never happen
-//        throw new UnsupportedOperationException();
 
         CreateConfirmBookingRequest request = new Gson().fromJson(new InputStreamReader(exchange.getInputStream()), CreateConfirmBookingRequest.class);
         Configuration configuration = Configuration.fromRestParameters(request.getParameters());
 
         // At this point you might want to call your external system to do the actual reserve&confirm and return data back.
         // Code below just provides some mocks.
+        if (!request.getReservationData().getProductId().equals(ORG_PID)) {
+            throw new UnsupportedOperationException();
+        }
 
         processBookingSourceInfo(request.getReservationData().getBookingSource());
-        String confirmationCode = UUID.randomUUID().toString();
+        
+        try {
+            // requestBodyBuilder.add("sendCustomerNotification", true);        
+            ReservationData reservationData = request.getReservationData();
+            JsonObjectBuilder bokunRequest = Json.createObjectBuilder();
+            
+            // 1. Build ActivityRequest
+            JsonObjectBuilder activityRequest = Json.createObjectBuilder();
+            activityRequest.add("activityId", Long.parseLong(TARGET_PID));
+            
+            // Set rateId from the first reservation (assuming single rate for all passengers)
+            if (!reservationData.getReservations().isEmpty()) {
+                activityRequest.add("rateId", Long.parseLong(reservationData.getReservations().get(0).getRateId()));
+            }
+            
+            // Format date (yyyy-MM-dd)
+            DateYMD date = reservationData.getDate();
+            activityRequest.add("date", String.format("%04d-%02d-%02d", date.getYear(), date.getMonth(), date.getDay()));
+            
+            // 2. Build PricingCategoryBookings from passengers
+            JsonArrayBuilder pricingCategoryBookings = Json.createArrayBuilder();
+            
+            for (Reservation reservation : reservationData.getReservations()) {
+                for (Passenger passenger : reservation.getPassengers()) {
+                    JsonObjectBuilder pcBooking = Json.createObjectBuilder();
+                    pcBooking.add("pricingCategoryId", Long.parseLong(passenger.getPricingCategoryId()));
+                    
+                    // pcBooking.add("answers", passengerAnswers);
+                    pricingCategoryBookings.add(pcBooking);
+                }
+            }
+            
+            activityRequest.add("pricingCategoryBookings", pricingCategoryBookings);
+            bokunRequest.add("activityRequest", activityRequest);
+            
+            // 3. Build Customer
+            JsonObjectBuilder customer = Json.createObjectBuilder();
+            Contact customerContact = reservationData.getCustomerContact();
+            
+            if (customerContact.getFirstName() != null) {
+                customer.add("firstName", customerContact.getFirstName());
+            }
 
-        ConfirmBookingResponse response = new ConfirmBookingResponse();
-        SuccessfulBooking successfulBooking = new SuccessfulBooking();
-        successfulBooking.setBookingConfirmationCode(confirmationCode);
-        Ticket ticket = new Ticket();
-        QrTicket qrTicket = new QrTicket();
-        qrTicket.setTicketBarcode(confirmationCode + "_ticket");
-        ticket.setQrTicket(qrTicket);
-        successfulBooking.setBookingTicket(ticket);
-        response.setSuccessfulBooking(successfulBooking);
+            if (customerContact.getLastName() != null) {
+                customer.add("lastName", customerContact.getLastName());
+            }
 
-        exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json; charset=utf-8");
-        exchange.getResponseSender().send(new Gson().toJson(response));
-        log.trace("Out ::createAndConfirmBooking");
+            if (customerContact.getEmail() != null) {
+                customer.add("email", customerContact.getEmail());
+            }
+
+            if (customerContact.getPhone() != null) {
+                customer.add("phoneNumber", customerContact.getPhone());
+            }
+
+            if (customerContact.getAddress() != null) {
+                customer.add("address", customerContact.getAddress());
+            }
+
+            if (customerContact.getPostCode() != null) {
+                customer.add("postCode", customerContact.getPostCode());
+            }
+            if (customerContact.getCountry() != null) {
+                customer.add("country", customerContact.getCountry());
+            }
+            
+            bokunRequest.add("customer", customer);
+            
+            // 4. Add Additional Fields
+            bokunRequest.add("paymentOption", "NOT_PAID");
+            bokunRequest.add("sendCustomerNotification", true);
+            
+            if (reservationData.getNotes() != null) {
+                bokunRequest.add("note", reservationData.getNotes());
+            }
+            
+            if (reservationData.getPlatformId() != null) {
+                bokunRequest.add("externalBookingReference", reservationData.getPlatformId());
+            }
+
+            // Build base URL
+            StringBuilder pathBuilder = new StringBuilder("/booking.json/activity-booking/reserve-and-confirm");
+            HttpURLConnection connection = createHttpConnection("POST", pathBuilder.toString());
+            
+            try {
+                // Write request body
+                try (OutputStream os = connection.getOutputStream();
+                    JsonWriter writer = Json.createWriter(os)) {
+                    writer.writeObject(bokunRequest.build());
+                }
+    
+                if (connection.getResponseCode() == 200) {
+                    // Ok, now return the result
+                    InputStream responseStream = connection.getInputStream();
+    
+                    try (JsonReader reader = Json.createReader(responseStream)) {
+                        JsonObject bokunResponse = reader.readObject();
+    
+                        // Extract confirmation code from Bokun response
+                        String confirmationCode = bokunResponse.getString("confirmationCode");
+                        ConfirmBookingResponse response = new ConfirmBookingResponse();
+                        SuccessfulBooking successfulBooking = new SuccessfulBooking();
+                        successfulBooking.setBookingConfirmationCode(confirmationCode);
+                        Ticket ticket = new Ticket();
+                        QrTicket qrTicket = new QrTicket();
+                        qrTicket.setTicketBarcode(confirmationCode + "_ticket");
+                        ticket.setQrTicket(qrTicket);
+                        successfulBooking.setBookingTicket(ticket);
+                        response.setSuccessfulBooking(successfulBooking);
+        
+                        exchange.setStatusCode(connection.getResponseCode());
+                        exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json; charset=utf-8");
+                        exchange.getResponseSender().send(new Gson().toJson(response));
+                    }
+                } else {
+                    handleApiError(connection);
+                }
+            } finally {
+                connection.disconnect();
+            }
+        } catch (IllegalArgumentException e) {
+            exchange.setStatusCode(400);
+            exchange.getResponseSender().send("{\"error\":\"" + e.getMessage() + "\"}");
+        } catch (Exception e) {
+            logError("Error while searching products: ", e);
+            exchange.setStatusCode(500);
+            exchange.getResponseSender().send("{\"error\":\"Internal server error\"}");
+        }
+
+        log.trace("Out ::getProductAvailability");
     }
 
     /**
@@ -482,18 +1102,75 @@ public class SampleRestPlugin {
      */
     public void cancelBooking(HttpServerExchange exchange) {
         log.trace("In ::cancelBooking");
-
-        CancelBookingRequest request = new Gson().fromJson(new InputStreamReader(exchange.getInputStream()), CancelBookingRequest.class);
+    
+        // Parse incoming request
+        CancelBookingRequest request = new Gson().fromJson(
+            new InputStreamReader(exchange.getInputStream()), 
+            CancelBookingRequest.class
+        );
         Configuration configuration = Configuration.fromRestParameters(request.getParameters());
 
-        // At this point you might want to call your external system to do the actual booking cancellation and return data back.
-        // Code below just provides some mocks.
+        // Validate required fields
+        if (request.getBookingConfirmationCode() == null || request.getBookingConfirmationCode().isEmpty()) {
+            throw new IllegalArgumentException("Booking confirmation code is required");
+        }
 
-        CancelBookingResponse response = new CancelBookingResponse();
-        response.setSuccessfulCancellation(new SuccessfulCancellation());
+        try {
+            String bookingCode = request.getBookingConfirmationCode();
+            String agentCode = request.getAgentCode() != null ? request.getAgentCode() : "";
+    
+            // Build API URL
+            String apiPath = "/booking.json/cancel-booking/" + bookingCode;
+            HttpURLConnection connection = createHttpConnection("POST", apiPath);
+    
+            // Build request body
+            JsonObjectBuilder bokunRequest = Json.createObjectBuilder()
+                .add("note", agentCode)
+                .add("notify", true)
+                .add("refund", true);
+    
+            try {
+                // Write request body
+                try (OutputStream os = connection.getOutputStream();
+                     JsonWriter writer = Json.createWriter(os)) {
+                    writer.writeObject(bokunRequest.build());
+                }
+        
+                // Process response
+                int statusCode = connection.getResponseCode();
+                CancelBookingResponse response = new CancelBookingResponse();
+        
+                if (statusCode == 200) {
+                    // Successful cancellation
+                    response.setSuccessfulCancellation(new SuccessfulCancellation());
+                    exchange.setStatusCode(statusCode);
 
-        exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json; charset=utf-8");
-        exchange.getResponseSender().send(new Gson().toJson(response));
+                    // Send response
+                    exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json; charset=utf-8");
+                    exchange.getResponseSender().send(new Gson().toJson(response));
+                } else {
+                    // Failed cancellation
+                    String errorResponse = readErrorStream(connection);
+                    log.error("Cancellation failed with status {}: {}", statusCode, errorResponse);
+                    
+                    FailedCancellation failedCancellation = new FailedCancellation();
+                    failedCancellation.setCancellationError(errorResponse);
+                    response.setFailedCancellation(failedCancellation);
+                    exchange.setStatusCode(statusCode);
+                }
+            } finally {
+                connection.disconnect();
+            }
+        } catch (IllegalArgumentException e) {
+            log.error("Validation error in cancelBooking: {}", e.getMessage());
+            exchange.setStatusCode(400);
+            exchange.getResponseSender().send("{\"error\":\"" + e.getMessage() + "\"}");
+        } catch (Exception e) {
+            log.error("Error in cancelBooking: ", e);
+            exchange.setStatusCode(500);
+            exchange.getResponseSender().send("{\"error\":\"Internal server error\"}");
+        } 
+        
         log.trace("Out ::cancelBooking");
     }
 }
