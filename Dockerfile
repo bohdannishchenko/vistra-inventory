@@ -1,5 +1,5 @@
 # ---- Build Stage ----
-  FROM gradle:7.6-jdk8 AS build
+  FROM gradle:4.7-jdk8 AS build
   WORKDIR /app
   
   # Copy source code
