@@ -2,9 +2,9 @@
 //import com.amazonaws.auth.DefaultAWSCredentialsProviderChain
 
 buildscript {
-    // ext {
-    //     awsVersion = '1.11.455'
-    // }
+    ext {
+        awsVersion = '1.11.455'
+    }
     repositories {
         maven { url "https://plugins.gradle.org/m2/" }
         mavenLocal()
