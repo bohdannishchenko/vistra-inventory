@@ -54,9 +54,9 @@ public class SampleRestPlugin {
      */
     private static final long DEFAULT_READ_TIMEOUT = 30L;
 
-    private static final String ORG_PID = "982127";
-    private static final String TARGET_PID = "1016497";
-    private static final String VENDOR_ID = "98806";
+    // private static final String ORG_PID = "982127";
+    // private static final String TARGET_PID = "1016497";
+    // private static final String VENDOR_ID = "98806";
 
     private static final String HMAC_SHA1_ALGORITHM = "HmacSHA1";   
     private static final String LOG_FILE = "bokun_plugin_errors.log";
@@ -267,16 +267,37 @@ public class SampleRestPlugin {
                 SearchProductRequest.class
             );
 
-            // 2. Fetch products
-            List<BasicProductInfo> products = fetchBokunProducts(request);
+            // // 2. Fetch products
+            // List<BasicProductInfo> products = fetchBokunProducts(request);
             
-            // 3. Filter out test product
-            products.removeIf(p -> !ORG_PID.equals(p.getId()));
+            // // 3. Filter out test product
+            // products.removeIf(p -> !Configuration.getSupplierProductId().equals(p.getId()));
 
-            // 4. Send response
-            exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json");
-            exchange.getResponseSender().send(new Gson().toJson(products));
+            StringBuilder pathBuilder = new StringBuilder("/activity.json/").append(Configuration.getSupplierProductId());
+        
+            HttpURLConnection connection = createHttpConnection("GET", pathBuilder.toString());
+            
+            try {
+                if (connection.getResponseCode() == 200) {
+                    ProductDescription product = parseProductDescription(connection.getInputStream());
+                    
+                    BasicProductInfo basicProductInfo = new BasicProductInfo();
+                    basicProductInfo.setId(product.getId());
+                    basicProductInfo.setName(product.getName());
+                    basicProductInfo.setDescription(product.getDescription());
+                    basicProductInfo.setPricingCategories(product.getPricingCategories());
+                    basicProductInfo.setCountries(product.getCountries());
+                    basicProductInfo.setCities(product.getCities());
 
+                    exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json");
+                    exchange.getResponseSender().send(new Gson().toJson(Lists.newArrayList(basicProductInfo)));
+        
+                } else {
+                    handleApiError(connection);
+                }
+            } finally {
+                connection.disconnect();  
+            }
         } catch (IllegalArgumentException e) {
             exchange.setStatusCode(400);
             exchange.getResponseSender().send("{\"error\":\"" + e.getMessage() + "\"}");
@@ -372,8 +393,6 @@ public class SampleRestPlugin {
         JsonObjectBuilder requestBuilder = Json.createObjectBuilder()
             .add("textFilter", textFilterBuilder);
                     
-        requestBuilder.add("vendorId", VENDOR_ID);
-
         // Write request body
         try (OutputStream os = connection.getOutputStream();
             JsonWriter writer = Json.createWriter(os)) {
@@ -603,64 +622,94 @@ public class SampleRestPlugin {
      */
     public void getAvailableProducts(HttpServerExchange exchange) {
         log.trace("In ::getAvailableProducts");
-
-        ProductsAvailabilityRequest request = new Gson().fromJson(new InputStreamReader(exchange.getInputStream()), ProductsAvailabilityRequest.class);
-        Configuration configuration = Configuration.fromRestParameters(request.getParameters());
-
-        // At this point you might want to call your external system to do the actual search and return data back.
-        // Code below just provides some mocks.
-        if (!request.getExternalProductIds().contains(ORG_PID)) {
-            throw new IllegalStateException(String.format("Previous call only returned product having id=%s", ORG_PID));
-        }
-        
-        StringBuilder pathBuilder = new StringBuilder("/activity.json/").append(TARGET_PID).append("/availabilities");
-        DateYMD from = request.getRange().getFrom();
-        DateYMD to = request.getRange().getTo();
     
-        if (from != null && to != null) {
-            pathBuilder.append(String.format("?start=%04d-%02d-%02d&end=%04d-%02d-%02d", from.getYear(), from.getMonth(), from.getDay(), 
-                                to.getYear(), to.getMonth(), to.getDay()));
-        }
-
         try {
-            pathBuilder.append("&includeSoldOut=false");
-            HttpURLConnection connection = createHttpConnection("GET", pathBuilder.toString());
-            
-            try {
-                int statusCode = connection.getResponseCode();
-
-                if (statusCode == 200) {
-                    try (JsonReader reader = Json.createReader(connection.getInputStream())) {
-                        JsonArray productArray = reader.readArray();
-                        if (!productArray.isEmpty()) {
+            // Parse request
+            ProductsAvailabilityRequest request = new Gson().fromJson(
+                new InputStreamReader(exchange.getInputStream()), 
+                ProductsAvailabilityRequest.class
+            );
+            Configuration configuration = Configuration.fromRestParameters(request.getParameters());
+    
+            // Validate request
+            if (request.getExternalProductIds() == null || request.getExternalProductIds().isEmpty()) {
+                throw new IllegalArgumentException("External product IDs are required");
+            }
+    
+            List<ProductsAvailabilityResponse> responses = new ArrayList<>();
+            DateYMD from = request.getRange().getFrom();
+            DateYMD to = request.getRange().getTo();
+    
+            // Process each external product ID
+            for (String externalId : request.getExternalProductIds()) {
+                try {
+                    // Build API path for each product
+                    StringBuilder pathBuilder = new StringBuilder("/activity.json/")
+                        .append(externalId)
+                        .append("/availabilities")
+                        .append("?includeSoldOut=false");
+    
+                    // Add date range if specified
+                    if (from != null && to != null) {
+                        pathBuilder.append(String.format(
+                            "&start=%04d-%02d-%02d&end=%04d-%02d-%02d", 
+                            from.getYear(), from.getMonth(), from.getDay(),
+                            to.getYear(), to.getMonth(), to.getDay()
+                        ));
+                    }
+    
+                    // Make API call
+                    HttpURLConnection connection = createHttpConnection("GET", pathBuilder.toString());
+                    
+                    try {
+                        int statusCode = connection.getResponseCode();
+    
+                        if (statusCode == 200) {
                             ProductsAvailabilityResponse response = new ProductsAvailabilityResponse();
                             response.setActualCheckDone(true);
-                            response.setProductId(ORG_PID);
-    
-                            exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json; charset=utf-8");
-                            exchange.getResponseSender().send(new Gson().toJson(ImmutableList.of(response)));
+                            response.setProductId(externalId);
+                            
+                            responses.add(response);
                         } else {
-                            exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json; charset=utf-8");
-                            exchange.getResponseSender().send(new Gson().toJson(ImmutableList.of()));
+                            // Log error but continue with other products
+                            logError("Failed to check availability for product " + externalId + 
+                                    ". Status: " + statusCode, null);
+                            
+                            // Add response indicating failure
+                            ProductsAvailabilityResponse errorResponse = new ProductsAvailabilityResponse();
+                            errorResponse.setProductId(externalId);
+                            errorResponse.setActualCheckDone(false);
+                            responses.add(errorResponse);
                         }
+                    } finally {
+                        connection.disconnect();
                     }
-                } else {
-                    handleApiError(connection);
+                } catch (Exception e) {
+                    logError("Error checking availability for product " + externalId, e);
+                    
+                    // Add error response for this product
+                    ProductsAvailabilityResponse errorResponse = new ProductsAvailabilityResponse();
+                    errorResponse.setProductId(externalId);
+                    errorResponse.setActualCheckDone(false);
+                    responses.add(errorResponse);
                 }
-            } finally {
-                connection.disconnect();
             }
+    
+            // Send aggregated response
+            exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json; charset=utf-8");
+            exchange.getResponseSender().send(new Gson().toJson(responses));
+    
         } catch (IllegalArgumentException e) {
             exchange.setStatusCode(400);
             exchange.getResponseSender().send("{\"error\":\"" + e.getMessage() + "\"}");
         } catch (Exception e) {
-            logError("Error while getAvailable: ", e);
+            logError("Error in getAvailableProducts: ", e);
             exchange.setStatusCode(500);
             exchange.getResponseSender().send("{\"error\":\"Internal server error\"}");
+        } finally {
+            log.trace("Out ::getAvailableProducts");
         }
-
-        log.trace("Out ::getAvailableProducts");
-    }   
+    }
 
     /**
      * Get availability of a particular product over a date range. This request should follow GetAvailableProducts and provide more details on
@@ -675,12 +724,10 @@ public class SampleRestPlugin {
 
         // At this point you might want to call your external system to do the actual search and return data back.
         // Code below just provides some mocks.
-        if (!request.getProductId().equals(ORG_PID)) {
-            throw new IllegalStateException(String.format("Previous call only returned product having id=%s", ORG_PID));
-        }
         
+
         try {
-            StringBuilder pathBuilder = new StringBuilder("/activity.json/").append(TARGET_PID).append("/availabilities?lang=EN");
+            StringBuilder pathBuilder = new StringBuilder("/activity.json/").append(request.getProductId()).append("/availabilities?lang=EN");
             DateYMD from = request.getRange().getFrom();
             DateYMD to = request.getRange().getTo();
         
@@ -958,10 +1005,6 @@ public class SampleRestPlugin {
 
         // At this point you might want to call your external system to do the actual reserve&confirm and return data back.
         // Code below just provides some mocks.
-        if (!request.getReservationData().getProductId().equals(ORG_PID)) {
-            throw new UnsupportedOperationException();
-        }
-
         processBookingSourceInfo(request.getReservationData().getBookingSource());
         
         try {
@@ -971,7 +1014,7 @@ public class SampleRestPlugin {
             
             // 1. Build ActivityRequest
             JsonObjectBuilder activityRequest = Json.createObjectBuilder();
-            activityRequest.add("activityId", Long.parseLong(TARGET_PID));
+            activityRequest.add("activityId", Long.parseLong(request.getReservationData().getProductId()));
             
             // Set rateId from the first reservation (assuming single rate for all passengers)
             if (!reservationData.getReservations().isEmpty()) {

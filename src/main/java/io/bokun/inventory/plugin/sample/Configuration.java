@@ -21,7 +21,7 @@ public final class Configuration {
     String username;
     String password;
 
-        public static String getBokunAccessKey() {
+    public static String getBokunAccessKey() {
         return System.getenv("BOKUN_ACCESS_KEY");
     }
     
@@ -31,6 +31,10 @@ public final class Configuration {
     
     public static String getBokunApiBaseUrl() {
         return System.getenv().getOrDefault("BOKUN_API_URL", "https://api.bokun.io");
+    }
+
+    public static String getSupplierProductId() {
+        return System.getenv("SUPPLIER_PRODUCT_ID");
     }
 
     private static void setParameterValue(String parameterName, String parameterValue, Configuration configuration) {

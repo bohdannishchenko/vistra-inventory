@@ -193,7 +193,10 @@ public class Main {
     public static void main(String[] args) throws IOException, InterruptedException {
         log.info("Starting server...");
 
-        if (Configuration.getBokunAccessKey() == null || Configuration.getBokunSecretKey() == null) {
+        if (Configuration.getBokunAccessKey() == null || 
+            Configuration.getBokunSecretKey() == null || 
+            Configuration.getBokunApiBaseUrl() == null ||
+            Configuration.getSupplierProductId() == null ) {
             System.err.println("ERROR: Missing Bokun API credentials. Please set BOKUN_ACCESS_KEY and BOKUN_SECRET_KEY environment variables.");
             System.exit(1);
         }

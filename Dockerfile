@@ -1,15 +1,15 @@
 # ---- Build Stage ----
-  FROM gradle:7.6-jdk8-alpine AS build
+  FROM gradle:7.6-jdk8 AS build
   WORKDIR /app
   
   # Copy source code
   COPY . .
   
   # Build the fat JAR (adjust task if needed)
-  RUN gradle clean build -x test
+  RUN gradlew clean build -x test
   
   # ---- Runtime Stage ----
-  FROM openjdk:8-jdk-alpine
+  FROM openjdk:8-jdk
   WORKDIR /app
   
   # Copy the fat jar from build stage
@@ -20,4 +20,4 @@
   EXPOSE 8080
   
   # Start the app
-  CMD ["java", "-jar", "app.jar"]
+  CMD ["java", "-jar", "app.jar", "-rest" ]
