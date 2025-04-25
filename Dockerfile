@@ -16,8 +16,8 @@
   COPY --from=build /app/build/libs/*.jar app.jar
   
   # Railway uses PORT env var
-  ENV PORT=8080
-  EXPOSE 8080
+  ENV PORT=443
+  EXPOSE 443
   
   # Start the app
   CMD ["java", "-jar", "app.jar", "-rest" ]
