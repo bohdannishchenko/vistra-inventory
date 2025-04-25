@@ -27,7 +27,7 @@ import static io.netty.handler.ssl.SslProvider.*;
  * <p>The entry point for launching the plugin. Also bootstraps Gradle.</p>
  *
  * <p>The following environment variables are mandatory:<ul>
- *     <li><tt>SAMPLE_PLUGIN_PORT</tt> - a number to use for binding on a TCP port, e.g. 8080</li>
+ *     <li><tt>VISTRA_PLUGIN_PORT</tt> - a number to use for binding on a TCP port, e.g. 8080</li>
  * </ul>
  * </p>
  *

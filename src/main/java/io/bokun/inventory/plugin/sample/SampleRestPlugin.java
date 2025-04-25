@@ -106,12 +106,12 @@ public class SampleRestPlugin {
         // definition.getCapabilities().add(AMENDMENT);
 
         // reuse parameter names from grpc
-        definition.getParameters().add(asRequiredStringParameter(Configuration.SAMPLE_API_SCHEME));    // e.g. https
-        definition.getParameters().add(asRequiredStringParameter(Configuration.SAMPLE_API_HOST));      // e.g. your-api.your-company.com
-        definition.getParameters().add(asRequiredLongParameter(Configuration.SAMPLE_API_PORT));        // e.g. 443
-        definition.getParameters().add(asRequiredStringParameter(Configuration.SAMPLE_API_PATH));      // e.g. /api/1
-        definition.getParameters().add(asRequiredStringParameter(Configuration.SAMPLE_API_USERNAME));
-        definition.getParameters().add(asRequiredStringParameter(Configuration.SAMPLE_API_PASSWORD));
+        definition.getParameters().add(asRequiredStringParameter(Configuration.VISTRA_API_SCHEME));    // e.g. https
+        definition.getParameters().add(asRequiredStringParameter(Configuration.VISTRA_API_HOST));      // e.g. your-api.your-company.com
+        definition.getParameters().add(asRequiredLongParameter(Configuration.VISTRA_API_PORT));        // e.g. 443
+        definition.getParameters().add(asRequiredStringParameter(Configuration.VISTRA_API_PATH));      // e.g. /api/1
+        definition.getParameters().add(asRequiredStringParameter(Configuration.VISTRA_API_USERNAME));
+        definition.getParameters().add(asRequiredStringParameter(Configuration.VISTRA_API_PASSWORD));
 
         exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json; charset=utf-8");
         exchange.getResponseSender().send(new Gson().toJson(definition));

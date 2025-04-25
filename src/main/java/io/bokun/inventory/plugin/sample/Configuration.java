@@ -7,12 +7,12 @@ import io.bokun.inventory.common.api.grpc.*;
  */
 public final class Configuration {
 
-    static final String SAMPLE_API_SCHEME = "SAMPLE_API_SCHEME";
-    static final String SAMPLE_API_HOST = "SAMPLE_API_HOST";
-    static final String SAMPLE_API_PORT = "SAMPLE_API_PORT";
-    static final String SAMPLE_API_PATH = "SAMPLE_API_PATH";
-    static final String SAMPLE_API_USERNAME = "SAMPLE_API_USERNAME";
-    static final String SAMPLE_API_PASSWORD = "SAMPLE_API_PASSWORD";
+    static final String VISTRA_API_SCHEME = "VISTRA_API_SCHEME";
+    static final String VISTRA_API_HOST = "VISTRA_API_HOST";
+    static final String VISTRA_API_PORT = "VISTRA_API_PORT";
+    static final String VISTRA_API_PATH = "VISTRA_API_PATH";
+    static final String VISTRA_API_USERNAME = "VISTRA_API_USERNAME";
+    static final String VISTRA_API_PASSWORD = "VISTRA_API_PASSWORD";
 
     String scheme;
     String host;
@@ -39,12 +39,12 @@ public final class Configuration {
 
     private static void setParameterValue(String parameterName, String parameterValue, Configuration configuration) {
         switch (parameterName) {
-            case SAMPLE_API_SCHEME: configuration.scheme = parameterValue; break;
-            case SAMPLE_API_HOST: configuration.host = parameterValue; break;
-            case SAMPLE_API_PORT: configuration.port = Integer.parseInt(parameterValue); break;
-            case SAMPLE_API_PATH: configuration.apiPath = parameterValue; break;
-            case SAMPLE_API_USERNAME: configuration.username = parameterValue; break;
-            case SAMPLE_API_PASSWORD: configuration.password = parameterValue; break;
+            case VISTRA_API_SCHEME: configuration.scheme = parameterValue; break;
+            case VISTRA_API_HOST: configuration.host = parameterValue; break;
+            case VISTRA_API_PORT: configuration.port = Integer.parseInt(parameterValue); break;
+            case VISTRA_API_PATH: configuration.apiPath = parameterValue; break;
+            case VISTRA_API_USERNAME: configuration.username = parameterValue; break;
+            case VISTRA_API_PASSWORD: configuration.password = parameterValue; break;
         }
     }
 

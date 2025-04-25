@@ -1,10 +1,10 @@
-import com.amazonaws.auth.AWSCredentials
-import com.amazonaws.auth.DefaultAWSCredentialsProviderChain
+//import com.amazonaws.auth.AWSCredentials
+//import com.amazonaws.auth.DefaultAWSCredentialsProviderChain
 
 buildscript {
-    ext {
-        awsVersion = '1.11.455'
-    }
+    // ext {
+    //     awsVersion = '1.11.455'
+    // }
     repositories {
         maven { url "https://plugins.gradle.org/m2/" }
         mavenLocal()
@@ -31,8 +31,10 @@ apply plugin: 'jp.classmethod.aws'
 group = 'bokun'
 //version '0.3.4'         // should match the one in API and inventory service
 
-task wrapper(type: Wrapper) {
-    gradleVersion = '4.7'
+if (!project.tasks.findByName('wrapper')) {
+    task wrapper(type: Wrapper) {
+        gradleVersion = '7.6'
+    }
 }
 
 sourceCompatibility = 1.8
@@ -60,35 +62,35 @@ def jarName = "${jar.baseName}.jar"
 //AWSCredentials awsCredentials = DefaultAWSCredentialsProviderChain.getInstance().credentials;
 
 repositories {
-    maven {
-        url "http://public-pmr.bokun.io.s3-website-eu-west-1.amazonaws.com/snapshots"
-    }
+    // maven {
+    //     url "https://public-pmr.bokun.io.s3-website-eu-west-1.amazonaws.com/snapshots"
+    // }
     mavenLocal()
     mavenCentral()
     jcenter()
-    maven {
-        url "http://public-pmr.bokun.io.s3-website-eu-west-1.amazonaws.com/release"
-    }
+    // maven {
+    //     url "https://public-pmr.bokun.io.s3-website-eu-west-1.amazonaws.com/release"
+    // }
 }
 
 dependencies {
-    compile group: 'com.google.code.findbugs', name: 'jsr305', version:'3.0.2'
-    compile group: 'org.slf4j', name: 'slf4j-api', version:'1.7.25'
-    compile group: 'org.slf4j', name: 'slf4j-log4j12', version:'1.7.25'
-    compile group: 'com.google.guava', name: 'guava', version:'27.1-jre'
-    compile 'io.grpc:grpc-all:1.11.0'
-    compile 'io.bokun.inventory:common-api:0.4.2'
-    compile 'io.bokun.inventory:plugin-api:0.4.2'
-    compile group: 'com.squareup.okhttp', name: 'okhttp', version: '2.7.5'
-    compile group: 'org.apache.commons', name: 'commons-lang3', version: '3.6'
-    compile 'com.google.inject:guice:4.2.2'
-    compile 'io.netty:netty-tcnative-boringssl-static:2.0.1.Final'
-    compile 'io.undertow:undertow-core:2.0.19.Final'
-    compile 'javax.json:javax.json-api:1.1.4'
-    compile 'org.glassfish:javax.json:1.1.4'
+    implementation group: 'com.google.code.findbugs', name: 'jsr305', version:'3.0.2'
+    implementation group: 'org.slf4j', name: 'slf4j-api', version:'1.7.25'
+    implementation group: 'org.slf4j', name: 'slf4j-log4j12', version:'1.7.25'
+    implementation group: 'com.google.guava', name: 'guava', version:'27.1-jre'
+    implementation 'io.grpc:grpc-all:1.11.0'
+    implementation 'io.bokun.inventory:common-api:0.4.2'
+    implementation 'io.bokun.inventory:plugin-api:0.4.2'
+    implementation group: 'com.squareup.okhttp', name: 'okhttp', version: '2.7.5'
+    implementation group: 'org.apache.commons', name: 'commons-lang3', version: '3.6'
+    implementation 'com.google.inject:guice:4.2.2'
+    implementation 'io.netty:netty-tcnative-boringssl-static:2.0.1.Final'
+    implementation 'io.undertow:undertow-core:2.0.19.Final'
+    implementation 'javax.json:javax.json-api:1.1.4'
+    implementation 'org.glassfish:javax.json:1.1.4'
 
 
-    testCompile group: 'junit', name: 'junit', version:'4.12'
+    testImplementation group: 'junit', name: 'junit', version:'4.12'
 }
 
 idea {
@@ -108,7 +110,7 @@ task sourceJava(type: Jar) {
 
 jar {
     from {
-        (configurations.runtime).collect {
+        (configurations.runtimeClasspath).collect {
             it.isDirectory() ? it : zipTree(it)
         }
     }
@@ -117,33 +119,33 @@ jar {
     }
 }
 
-task createJsonAWS(type: Copy, dependsOn: clean) {
-    println "createJsonAWS"
+// task createJsonAWS(type: Copy, dependsOn: clean) {
+//     println "createJsonAWS"
 
-    from "src/main/docker/aws.json"
-    into "build/bundle"
-    expand(dockerName: dockerName)
-    rename { String fileName ->
-        fileName.replace("aws.json", jsonName)
-    }
-}
+//     from "src/main/docker/aws.json"
+//     into "build/bundle"
+//     expand(dockerName: dockerName)
+//     rename { String fileName ->
+//         fileName.replace("aws.json", jsonName)
+//     }
+// }
 
-task buildDocker(type: Docker, dependsOn: [build]) {
-    push = false
-    applicationName = jar.baseName
-    tagVersion = buildNumber
-    dockerfile = file('src/main/docker/Dockerfile')
-    doFirst {
-        println("libs = ${project.buildDir}/libs")
-        println("jar = ${jar.baseName}")
-        println("${project.name}-${version}.jar")
-        println(jarName)
-        copy {
-            println("copy jar")
-            println("jar = ${jarName}")
-            from "${project.buildDir}/libs"
-            into stageDir
-            include "${jarName}"
-        }
-    }
-}
+// task buildDocker(type: Docker, dependsOn: [build]) {
+//     push = false
+//     applicationName = jar.baseName
+//     tagVersion = buildNumber
+//     dockerfile = file('src/main/docker/Dockerfile')
+//     doFirst {
+//         println("libs = ${project.buildDir}/libs")
+//         println("jar = ${jar.baseName}")
+//         println("${project.name}-${version}.jar")
+//         println(jarName)
+//         copy {
+//             println("copy jar")
+//             println("jar = ${jarName}")
+//             from "${project.buildDir}/libs"
+//             into stageDir
+//             include "${jarName}"
+//         }
+//     }
+// }

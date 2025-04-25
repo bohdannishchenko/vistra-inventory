@@ -6,7 +6,7 @@
   COPY . .
   
   # Build the fat JAR (adjust task if needed)
-  RUN gradlew clean build -x test
+  RUN gradle clean build -x test
   
   # ---- Runtime Stage ----
   FROM openjdk:8-jdk

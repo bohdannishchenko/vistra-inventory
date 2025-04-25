@@ -1,7 +1,7 @@
 load('../bokun_platform/tilt/utils/Tiltfile', 'dotenv', 'zsh', 'run_no_print', 'localhost_domain', 'run_mysql', 'sdkman_init', 'kill_port')
 
 serve_env = dotenv({
-    'SAMPLE_PLUGIN_PORT': '18080',
+    'VISTRA_PLUGIN_PORT': '18080',
 })
 
 local_resource(

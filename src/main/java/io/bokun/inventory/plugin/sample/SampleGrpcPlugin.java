@@ -83,12 +83,12 @@ public class SampleGrpcPlugin extends PluginApiGrpc.PluginApiImplBase {
                         .addAllCapabilities(ImmutableList.of(SUPPORTS_AVAILABILITY, SUPPORTS_RESERVATIONS, SUPPORTS_AMENDMENT, SUPPORTS_RESERVATION_CANCELLATION))
                         .addAllParameters(
                                 ImmutableList.of(
-                                        asRequiredStringParameter(Configuration.SAMPLE_API_SCHEME),         // e.g. https
-                                        asRequiredStringParameter(Configuration.SAMPLE_API_HOST),           // e.g. your-api.your-company.com
-                                        asRequiredLongParameter(Configuration.SAMPLE_API_PORT),             // e.g. 443
-                                        asRequiredStringParameter(Configuration.SAMPLE_API_PATH),           // e.g. /api/1
-                                        asRequiredStringParameter(Configuration.SAMPLE_API_USERNAME),
-                                        asRequiredStringParameter(Configuration.SAMPLE_API_PASSWORD)
+                                        asRequiredStringParameter(Configuration.VISTRA_API_SCHEME),         // e.g. https
+                                        asRequiredStringParameter(Configuration.VISTRA_API_HOST),           // e.g. your-api.your-company.com
+                                        asRequiredLongParameter(Configuration.VISTRA_API_PORT),             // e.g. 443
+                                        asRequiredStringParameter(Configuration.VISTRA_API_PATH),           // e.g. /api/1
+                                        asRequiredStringParameter(Configuration.VISTRA_API_USERNAME),
+                                        asRequiredStringParameter(Configuration.VISTRA_API_PASSWORD)
                                 )
                         )
                         .build()
