@@ -230,6 +230,7 @@ public class Main {
                 .setHandler(
                         new RoutingHandler()
                                 .get("/plugin/definition", server.restService::getDefinition)
+                                .get("/product/search", new BlockingHandler(server.restService::searchProducts))
                                 .post("/product/search", new BlockingHandler(server.restService::searchProducts))
                                 .post("/product/getById", new BlockingHandler(server.restService::getProductById))
                                 .post("/product/getAvailable", new BlockingHandler(server.restService::getAvailableProducts))
