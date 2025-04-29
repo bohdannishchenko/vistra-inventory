@@ -201,6 +201,12 @@ public class Main {
             System.exit(1);
         }
 
+        if (Configuration.getBokunApiBaseUrl() == null ||
+            Configuration.getSupplierProductId() == null ) {
+            System.err.println("ERROR: Missing Bokun API URL and supplier product id credentials. Please set BOKUN_API_URL and SUPPLIER_PRODUCT_ID environment variables.");
+            System.exit(1);
+        }
+
         boolean isRest = (args.length == 1) && "-rest".equals(args[0]);
         boolean isGrpc = (args.length == 1) && "-grpc".equals(args[0]);
 

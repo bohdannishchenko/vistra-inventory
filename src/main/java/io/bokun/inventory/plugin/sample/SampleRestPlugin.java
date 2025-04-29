@@ -77,7 +77,7 @@ public class SampleRestPlugin {
         PluginConfigurationParameter param = new PluginConfigurationParameter();
         param.setName(name);
         param.setType(PluginParameterDataType.STRING);
-        param.setRequired(true);
+        param.setRequired(false);
         return param;
     }
 
@@ -87,6 +87,24 @@ public class SampleRestPlugin {
         param.setName(name);
         param.setType(PluginParameterDataType.LONG);
         param.setRequired(true);
+        return param;
+    }
+
+    // helper method to express string as required string parameter structure, required by the REST API
+    private PluginConfigurationParameter asStringParameter(String name, Boolean required) {
+        PluginConfigurationParameter param = new PluginConfigurationParameter();
+        param.setName(name);
+        param.setType(PluginParameterDataType.STRING);
+        param.setRequired(required);
+        return param;
+    }
+
+    // helper method to express string as required long parameter structure, required by the REST API
+    private PluginConfigurationParameter asLongParameter(String name, Boolean required) {
+        PluginConfigurationParameter param = new PluginConfigurationParameter();
+        param.setName(name);
+        param.setType(PluginParameterDataType.LONG);
+        param.setRequired(required);
         return param;
     }
 
@@ -106,12 +124,12 @@ public class SampleRestPlugin {
         // definition.getCapabilities().add(AMENDMENT);
 
         // reuse parameter names from grpc
-        definition.getParameters().add(asRequiredStringParameter(Configuration.VISTRA_API_SCHEME));    // e.g. https
-        definition.getParameters().add(asRequiredStringParameter(Configuration.VISTRA_API_HOST));      // e.g. your-api.your-company.com
-        definition.getParameters().add(asRequiredLongParameter(Configuration.VISTRA_API_PORT));        // e.g. 443
-        definition.getParameters().add(asRequiredStringParameter(Configuration.VISTRA_API_PATH));      // e.g. /api/1
-        definition.getParameters().add(asRequiredStringParameter(Configuration.VISTRA_API_USERNAME));
-        definition.getParameters().add(asRequiredStringParameter(Configuration.VISTRA_API_PASSWORD));
+        definition.getParameters().add(asStringParameter(Configuration.VISTRA_API_SCHEME, false));    // e.g. https
+        definition.getParameters().add(asStringParameter(Configuration.VISTRA_API_HOST, false));      // e.g. your-api.your-company.com
+        definition.getParameters().add(asLongParameter(Configuration.VISTRA_API_PORT, false));        // e.g. 443
+        definition.getParameters().add(asStringParameter(Configuration.VISTRA_API_PATH, false));      // e.g. /api/1
+        definition.getParameters().add(asStringParameter(Configuration.VISTRA_API_USERNAME, false));
+        definition.getParameters().add(asStringParameter(Configuration.VISTRA_API_PASSWORD, false));
 
         exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json; charset=utf-8");
         exchange.getResponseSender().send(new Gson().toJson(definition));
