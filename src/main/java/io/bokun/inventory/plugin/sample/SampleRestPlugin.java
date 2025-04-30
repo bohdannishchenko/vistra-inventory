@@ -124,12 +124,13 @@ public class SampleRestPlugin {
         // definition.getCapabilities().add(AMENDMENT);
 
         // reuse parameter names from grpc
-        definition.getParameters().add(asStringParameter(Configuration.VISTRA_API_SCHEME, false));    // e.g. https
-        definition.getParameters().add(asStringParameter(Configuration.VISTRA_API_HOST, false));      // e.g. your-api.your-company.com
-        definition.getParameters().add(asLongParameter(Configuration.VISTRA_API_PORT, false));        // e.g. 443
-        definition.getParameters().add(asStringParameter(Configuration.VISTRA_API_PATH, false));      // e.g. /api/1
-        definition.getParameters().add(asStringParameter(Configuration.VISTRA_API_USERNAME, false));
-        definition.getParameters().add(asStringParameter(Configuration.VISTRA_API_PASSWORD, false));
+        // definition.getParameters().add(asStringParameter(Configuration.VISTRA_API_SCHEME, false));    // e.g. https
+        // definition.getParameters().add(asStringParameter(Configuration.VISTRA_API_HOST, false));      // e.g. your-api.your-company.com
+        // definition.getParameters().add(asLongParameter(Configuration.VISTRA_API_PORT, false));        // e.g. 443
+        // definition.getParameters().add(asStringParameter(Configuration.VISTRA_API_PATH, false));      // e.g. /api/1
+        // definition.getParameters().add(asStringParameter(Configuration.VISTRA_API_USERNAME, false));
+        // definition.getParameters().add(asStringParameter(Configuration.VISTRA_API_PASSWORD, false));
+        definition.getParameters().add(asLongParameter(Configuration.VISTRA_API_EXTERNAL_PID, true));
 
         exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json; charset=utf-8");
         exchange.getResponseSender().send(new Gson().toJson(definition));
@@ -285,14 +286,16 @@ public class SampleRestPlugin {
                 SearchProductRequest.class
             );
 
+            Configuration configuration = Configuration.fromRestParameters(request.getParameters());
+
             // // 2. Fetch products
             // List<BasicProductInfo> products = fetchBokunProducts(request);
             
             // // 3. Filter out test product
             // products.removeIf(p -> !Configuration.getSupplierProductId().equals(p.getId()));
 
-            StringBuilder pathBuilder = new StringBuilder("/activity.json/").append(Configuration.getSupplierProductId());
-        
+            StringBuilder pathBuilder = new StringBuilder("/activity.json/").append(configuration.externalId);
+            
             HttpURLConnection connection = createHttpConnection("GET", pathBuilder.toString());
             
             try {

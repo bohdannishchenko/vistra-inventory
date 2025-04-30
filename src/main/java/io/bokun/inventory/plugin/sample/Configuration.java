@@ -13,6 +13,7 @@ public final class Configuration {
     static final String VISTRA_API_PATH = "VISTRA_API_PATH";
     static final String VISTRA_API_USERNAME = "VISTRA_API_USERNAME";
     static final String VISTRA_API_PASSWORD = "VISTRA_API_PASSWORD";
+    static final String VISTRA_API_EXTERNAL_PID = "VISTRA_API_EXTERNAL_PID";
 
     String scheme;
     String host;
@@ -20,6 +21,7 @@ public final class Configuration {
     String apiPath;
     String username;
     String password;
+    int externalId;
 
     public static String getBokunAccessKey() {
         return System.getenv("BOKUN_ACCESS_KEY");
@@ -33,18 +35,20 @@ public final class Configuration {
         return System.getenv().getOrDefault("BOKUN_API_URL", "https://api.bokun.io");
     }
 
-    public static String getSupplierProductId() {
-        return System.getenv("SUPPLIER_PRODUCT_ID");
+    public int getSupplierProductId() {
+        // return System.getenv("SUPPLIER_PRODUCT_ID");
+        return externalId;
     }
 
     private static void setParameterValue(String parameterName, String parameterValue, Configuration configuration) {
         switch (parameterName) {
-            case VISTRA_API_SCHEME: configuration.scheme = parameterValue; break;
-            case VISTRA_API_HOST: configuration.host = parameterValue; break;
-            case VISTRA_API_PORT: configuration.port = Integer.parseInt(parameterValue); break;
-            case VISTRA_API_PATH: configuration.apiPath = parameterValue; break;
-            case VISTRA_API_USERNAME: configuration.username = parameterValue; break;
-            case VISTRA_API_PASSWORD: configuration.password = parameterValue; break;
+            // case VISTRA_API_SCHEME: configuration.scheme = parameterValue; break;
+            // case VISTRA_API_HOST: configuration.host = parameterValue; break;
+            // case VISTRA_API_PORT: configuration.port = Integer.parseInt(parameterValue); break;
+            // case VISTRA_API_PATH: configuration.apiPath = parameterValue; break;
+            // case VISTRA_API_USERNAME: configuration.username = parameterValue; break;
+            // case VISTRA_API_PASSWORD: configuration.password = parameterValue; break;
+            case VISTRA_API_EXTERNAL_PID: configuration.externalId = Integer.parseInt(parameterValue); break;
         }
     }
 

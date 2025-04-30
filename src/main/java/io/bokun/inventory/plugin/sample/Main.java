@@ -195,15 +195,13 @@ public class Main {
 
         if (Configuration.getBokunAccessKey() == null || 
             Configuration.getBokunSecretKey() == null || 
-            Configuration.getBokunApiBaseUrl() == null ||
-            Configuration.getSupplierProductId() == null ) {
+            Configuration.getBokunApiBaseUrl() == null) {
             System.err.println("ERROR: Missing Bokun API credentials. Please set BOKUN_ACCESS_KEY and BOKUN_SECRET_KEY environment variables.");
             System.exit(1);
         }
 
-        if (Configuration.getBokunApiBaseUrl() == null ||
-            Configuration.getSupplierProductId() == null ) {
-            System.err.println("ERROR: Missing Bokun API URL and supplier product id credentials. Please set BOKUN_API_URL and SUPPLIER_PRODUCT_ID environment variables.");
+        if (Configuration.getBokunApiBaseUrl() == null) {
+            System.err.println("ERROR: Missing Bokun API URL and supplier product id credentials. Please set BOKUN_API_URL environment variables.");
             System.exit(1);
         }
 
