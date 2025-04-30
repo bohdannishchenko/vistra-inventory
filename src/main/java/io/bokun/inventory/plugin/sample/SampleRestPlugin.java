@@ -130,7 +130,7 @@ public class SampleRestPlugin {
         // definition.getParameters().add(asStringParameter(Configuration.VISTRA_API_PATH, false));      // e.g. /api/1
         // definition.getParameters().add(asStringParameter(Configuration.VISTRA_API_USERNAME, false));
         // definition.getParameters().add(asStringParameter(Configuration.VISTRA_API_PASSWORD, false));
-        definition.getParameters().add(asLongParameter(Configuration.VISTRA_API_EXTERNAL_PID, true));
+        definition.getParameters().add(asStringParameter(Configuration.VISTRA_API_EXTERNAL_PID, true));
 
         exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json; charset=utf-8");
         exchange.getResponseSender().send(new Gson().toJson(definition));
