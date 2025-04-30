@@ -113,8 +113,8 @@ public class SampleRestPlugin {
      */
     public void getDefinition(@Nonnull HttpServerExchange exchange) {
         PluginDefinition definition = new PluginDefinition();
-        definition.setName("VISTRA Inventory api plugin");
-        definition.setDescription("Provides availability and accepts bookings into <The Digital Mastery Acadent> booking system. Uses REST protocol");
+        definition.setName("VISTRA Inventory API Plugin");
+        definition.setDescription("Provides availability and accepts bookings into \"The Digital Mastery Acadent\" booking system. Uses REST protocol");
 
         definition.getCapabilities().add(AVAILABILITY);
 
