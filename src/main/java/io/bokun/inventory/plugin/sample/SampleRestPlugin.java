@@ -529,6 +529,30 @@ public class SampleRestPlugin {
             // Booking information
             if (productJson.containsKey("bookingType")) {
                 product.setBookingType(BookingType.fromValue(productJson.getString("bookingType")));
+
+                if (product.getBookingType() == BookingType.DATE_AND_TIME) {
+                    // Should parse startTimes
+                    if (productJson.containsKey("startTimes")) {
+                        JsonArray startTimesArray = productJson.getJsonArray("startTimes");
+                        List<Time> startTimes = new ArrayList<>();
+            
+                        for (JsonValue value : startTimesArray) {
+                            JsonObject startTimeJson = value.asJsonObject();
+                            Time time = new Time();
+            
+                            if (startTimeJson.containsKey("hour")) {
+                                time.setHour(startTimeJson.getInt("hour"));
+                            }
+                            if (startTimeJson.containsKey("minute")) {
+                                time.setMinute(startTimeJson.getInt("minute"));
+                            }
+            
+                            startTimes.add(time);
+                        }
+            
+                        product.setStartTimes(startTimes);
+                    }
+                }
             }
             
             if (productJson.containsKey("meetingType")) {
