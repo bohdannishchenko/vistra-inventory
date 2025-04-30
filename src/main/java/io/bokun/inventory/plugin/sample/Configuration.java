@@ -1,5 +1,9 @@
 package io.bokun.inventory.plugin.sample;
 
+import javax.json.Json;
+import javax.json.JsonArray;
+import javax.json.JsonReader;
+import java.io.StringReader;
 import io.bokun.inventory.common.api.grpc.*;
 
 /**
@@ -21,7 +25,7 @@ public final class Configuration {
     String apiPath;
     String username;
     String password;
-    String externalId;
+    String[] externalIds;
 
     public static String getBokunAccessKey() {
         return System.getenv("BOKUN_ACCESS_KEY");
@@ -35,6 +39,17 @@ public final class Configuration {
         return System.getenv().getOrDefault("BOKUN_API_URL", "https://api.bokun.io");
     }
 
+    public static String[] parseJsonArray(String input) {
+        try (JsonReader reader = Json.createReader(new StringReader(input))) {
+            JsonArray jsonArray = reader.readArray();
+            String[] result = new String[jsonArray.size()];
+            for (int i = 0; i < jsonArray.size(); i++) {
+                result[i] = jsonArray.get(i).toString().replace("\"", ""); // remove quotes if it's a string
+            }
+            return result;
+        }
+    }
+
     private static void setParameterValue(String parameterName, String parameterValue, Configuration configuration) {
         switch (parameterName) {
             // case VISTRA_API_SCHEME: configuration.scheme = parameterValue; break;
@@ -43,7 +58,7 @@ public final class Configuration {
             // case VISTRA_API_PATH: configuration.apiPath = parameterValue; break;
             // case VISTRA_API_USERNAME: configuration.username = parameterValue; break;
             // case VISTRA_API_PASSWORD: configuration.password = parameterValue; break;
-            case VISTRA_API_EXTERNAL_PID: configuration.externalId = parameterValue; break;
+            case VISTRA_API_EXTERNAL_PID: configuration.externalIds = parseJsonArray(parameterValue); break;
         }
     }
 

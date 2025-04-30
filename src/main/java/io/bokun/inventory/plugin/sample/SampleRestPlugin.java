@@ -278,47 +278,53 @@ public class SampleRestPlugin {
 
     public void searchProducts(@Nonnull HttpServerExchange exchange) {
         log.trace("In ::searchProducts");
-
+    
         try {
             // 1. Parse request
             SearchProductRequest request = new Gson().fromJson(
                 new InputStreamReader(exchange.getInputStream(), StandardCharsets.UTF_8),
                 SearchProductRequest.class
             );
-
+    
             Configuration configuration = Configuration.fromRestParameters(request.getParameters());
-
-            // // 2. Fetch products
-            // List<BasicProductInfo> products = fetchBokunProducts(request);
-            
-            // // 3. Filter out test product
-            // products.removeIf(p -> !Configuration.getSupplierProductId().equals(p.getId()));
-
-            StringBuilder pathBuilder = new StringBuilder("/activity.json/").append(configuration.externalId);
-            
-            HttpURLConnection connection = createHttpConnection("GET", pathBuilder.toString());
-            
-            try {
-                if (connection.getResponseCode() == 200) {
-                    ProductDescription product = parseProductDescription(connection.getInputStream());
-                    
-                    BasicProductInfo basicProductInfo = new BasicProductInfo();
-                    basicProductInfo.setId(product.getId());
-                    basicProductInfo.setName(product.getName());
-                    basicProductInfo.setDescription(product.getDescription());
-                    basicProductInfo.setPricingCategories(product.getPricingCategories());
-                    basicProductInfo.setCountries(product.getCountries());
-                    basicProductInfo.setCities(product.getCities());
-
-                    exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json");
-                    exchange.getResponseSender().send(new Gson().toJson(Lists.newArrayList(basicProductInfo)));
-        
-                } else {
-                    handleApiError(connection);
-                }
-            } finally {
-                connection.disconnect();  
+    
+            String[] externalIds = configuration.externalIds;
+            if (externalIds == null || externalIds.length == 0) {
+                throw new IllegalArgumentException("No externalIds provided in configuration.");
             }
+    
+            List<BasicProductInfo> products = new ArrayList<>();
+    
+            for (String externalId : externalIds) {
+                StringBuilder pathBuilder = new StringBuilder("/activity.json/").append(externalId);
+    
+                HttpURLConnection connection = createHttpConnection("GET", pathBuilder.toString());
+    
+                try {
+                    if (connection.getResponseCode() == 200) {
+                        ProductDescription product = parseProductDescription(connection.getInputStream());
+    
+                        BasicProductInfo basicProductInfo = new BasicProductInfo();
+                        basicProductInfo.setId(product.getId());
+                        basicProductInfo.setName(product.getName());
+                        basicProductInfo.setDescription(product.getDescription());
+                        basicProductInfo.setPricingCategories(product.getPricingCategories());
+                        basicProductInfo.setCountries(product.getCountries());
+                        basicProductInfo.setCities(product.getCities());
+    
+                        products.add(basicProductInfo);
+                    } else {
+                        log.warn("Non-200 response for externalId {}: {}", externalId, connection.getResponseCode());
+                        // Optional: continue or break depending on criticality
+                    }
+                } finally {
+                    connection.disconnect();
+                }
+            }
+    
+            exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json");
+            exchange.getResponseSender().send(new Gson().toJson(products));
+    
         } catch (IllegalArgumentException e) {
             exchange.setStatusCode(400);
             exchange.getResponseSender().send("{\"error\":\"" + e.getMessage() + "\"}");
@@ -327,9 +333,10 @@ public class SampleRestPlugin {
             exchange.setStatusCode(500);
             exchange.getResponseSender().send("{\"error\":\"Internal server error\"}");
         }
-
+    
         log.trace("Out ::searchProducts");
     }
+    
 
     private List<BasicProductInfo> parseResponse(InputStream inputStream) {
         List<BasicProductInfo> products = new ArrayList<>();
