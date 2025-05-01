@@ -1044,6 +1044,46 @@ public class SampleRestPlugin {
         }
     }
 
+    public Integer getStartTimeIdForTime(String externalId, Time targetTime) throws IOException {
+        String path = "/activity.json/" + externalId;
+        
+        try {
+            HttpURLConnection connection = createHttpConnection("GET", path);
+
+            try {
+                if (connection.getResponseCode() == 200) {
+                    try (InputStream inputStream = connection.getInputStream();
+                         JsonReader reader = Json.createReader(inputStream)) {
+        
+                        JsonObject productJson = reader.readObject();
+        
+                        if (productJson.containsKey("startTimes")) {
+                            JsonArray startTimesArray = productJson.getJsonArray("startTimes");
+        
+                            for (JsonValue value : startTimesArray) {
+                                JsonObject startTimeJson = value.asJsonObject();
+                                int hour = startTimeJson.getInt("hour", -1);
+                                int minute = startTimeJson.getInt("minute", -1);
+        
+                                if (hour == targetTime.getHour() && minute == targetTime.getMinute()) {
+                                    return startTimeJson.getInt("id", 0);
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    handleApiError(connection);
+                }
+            } finally {
+                connection.disconnect();
+            }
+        } catch (Exception e) {
+            logError("Error while getting the startTimeId: ", e);
+        }
+    
+        return 0; // No match found
+    }
+
     /**
      * Only implement this method if {@link PluginCapability#RESERVATIONS} is <b>NOT</b> among capabilities of your {@link PluginDefinition}.
      * Otherwise you are only required to implement both {@link #createReservation(HttpServerExchange)} and {@link
@@ -1091,6 +1131,9 @@ public class SampleRestPlugin {
             }
             
             activityRequest.add("pricingCategoryBookings", pricingCategoryBookings);
+            Integer startTimeId = getStartTimeIdForTime(request.getReservationData().getProductId(), request.getReservationData().getTime());
+            activityRequest.add("startTimeId", startTimeId);
+
             bokunRequest.add("activityRequest", activityRequest);
             
             // 3. Build Customer
@@ -1182,7 +1225,7 @@ public class SampleRestPlugin {
             exchange.setStatusCode(400);
             exchange.getResponseSender().send("{\"error\":\"" + e.getMessage() + "\"}");
         } catch (Exception e) {
-            logError("Error while searching products: ", e);
+            logError("Error while booking product: ", e);
             exchange.setStatusCode(500);
             exchange.getResponseSender().send("{\"error\":\"Internal server error\"}");
         }
