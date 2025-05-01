@@ -1044,32 +1044,18 @@ public class SampleRestPlugin {
         }
     }
 
-    public Integer getStartTimeIdForTime(String externalId, Time targetTime) throws IOException {
+    public JsonObject getActivityProductInfo(String externalId) {
         String path = "/activity.json/" + externalId;
-        
+    
         try {
             HttpURLConnection connection = createHttpConnection("GET", path);
-
+    
             try {
                 if (connection.getResponseCode() == 200) {
                     try (InputStream inputStream = connection.getInputStream();
                          JsonReader reader = Json.createReader(inputStream)) {
-        
-                        JsonObject productJson = reader.readObject();
-        
-                        if (productJson.containsKey("startTimes")) {
-                            JsonArray startTimesArray = productJson.getJsonArray("startTimes");
-        
-                            for (JsonValue value : startTimesArray) {
-                                JsonObject startTimeJson = value.asJsonObject();
-                                int hour = startTimeJson.getInt("hour", -1);
-                                int minute = startTimeJson.getInt("minute", -1);
-        
-                                if (hour == targetTime.getHour() && minute == targetTime.getMinute()) {
-                                    return startTimeJson.getInt("id", 0);
-                                }
-                            }
-                        }
+    
+                        return reader.readObject();
                     }
                 } else {
                     handleApiError(connection);
@@ -1078,7 +1064,50 @@ public class SampleRestPlugin {
                 connection.disconnect();
             }
         } catch (Exception e) {
-            logError("Error while getting the startTimeId: ", e);
+            logError("Error while getting activity product info: ", e);
+        }
+    
+        return Json.createObjectBuilder().build(); // Return empty JsonObject on failure
+    }
+
+    public Integer getStartTimeIdForTime(JsonObject productJson, Time targetTime) {
+        try {
+            if (productJson.containsKey("startTimes")) {
+                JsonArray startTimesArray = productJson.getJsonArray("startTimes");
+    
+                for (JsonValue value : startTimesArray) {
+                    JsonObject startTimeJson = value.asJsonObject();
+                    int hour = startTimeJson.getInt("hour", -1);
+                    int minute = startTimeJson.getInt("minute", -1);
+    
+                    if (hour == targetTime.getHour() && minute == targetTime.getMinute()) {
+                        return startTimeJson.getInt("id", 0);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            logError("Error while matching startTimeId: ", e);
+        }
+    
+        return 0; // No match found
+    }
+
+    public Integer getPickupDropOffPlaceId(JsonObject productJson, PickupDropoffPlace pickupDropOffPlace) {
+        try {
+            if (productJson.containsKey("startPoints")) {
+                JsonArray startPointsArray = productJson.getJsonArray("startPoints");
+    
+                for (JsonValue value : startPointsArray) {
+                    JsonObject pointJson = value.asJsonObject();
+                    String title = pointJson.getString("title", "");
+    
+                    if (title.equalsIgnoreCase(pickupDropOffPlace.getTitle())) {
+                        return pointJson.getInt("id", 0); // default to 0 if id missing
+                    }
+                }
+            }
+        } catch (Exception e) {
+            logError("Error while matching pickup place ID: ", e);
         }
     
         return 0; // No match found
@@ -1131,9 +1160,29 @@ public class SampleRestPlugin {
             }
             
             activityRequest.add("pricingCategoryBookings", pricingCategoryBookings);
-            Integer startTimeId = getStartTimeIdForTime(request.getReservationData().getProductId(), request.getReservationData().getTime());
-            activityRequest.add("startTimeId", startTimeId);
 
+            JsonObject productInfo = getActivityProductInfo(reservationData.getProductId());
+            activityRequest.add("startTimeId", getStartTimeIdForTime(productInfo, reservationData.getTime()));
+
+            // Pickup places
+            if (reservationData.getPickupRequired() != null) {
+                activityRequest.add("pickup", reservationData.getPickupRequired());
+                activityRequest.add("pickupPlaceDescription", reservationData.getCustomPickupPlace());
+                activityRequest.add("pickupPlaceId", getPickupDropOffPlaceId(productInfo, reservationData.getPredefinedPickupPlace()));
+            } else {
+                activityRequest.add("pickup", false);
+            }
+
+            // Drop Off
+            if (reservationData.getDropoffRequired() != null) {
+                activityRequest.add("dropoff", reservationData.getDropoffRequired());
+                activityRequest.add("dropoffPlaceDescription", reservationData.getCustomDropoffPlace());
+                activityRequest.add("dropoffPlaceId", getPickupDropOffPlaceId(productInfo, reservationData.getPredefinedDropoffPlace()));
+            } else {
+                activityRequest.add("dropoff", false);
+            }
+
+            // Finalize
             bokunRequest.add("activityRequest", activityRequest);
             
             // 3. Build Customer
