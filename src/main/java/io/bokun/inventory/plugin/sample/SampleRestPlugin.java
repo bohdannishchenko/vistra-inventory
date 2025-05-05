@@ -467,7 +467,8 @@ public class SampleRestPlugin {
                 }
             }
             product.setName(productJson.getString("title"));
-            product.setDescription(productJson.getString("description", ""));
+            // product.setDescription(productJson.getString("description", ""));
+            product.setDescription(productJson.getJsonObject("vendor").getString("title"));
             
             // Pricing categories
             if (productJson.containsKey("pricingCategories")) {
