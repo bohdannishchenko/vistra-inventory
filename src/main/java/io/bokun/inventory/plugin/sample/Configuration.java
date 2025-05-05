@@ -18,6 +18,7 @@ public final class Configuration {
     static final String VISTRA_API_USERNAME = "VISTRA_API_USERNAME";
     static final String VISTRA_API_PASSWORD = "VISTRA_API_PASSWORD";
     static final String VISTRA_API_EXTERNAL_PID = "VISTRA_API_EXTERNAL_PID";
+    static final String VISTRA_API_EXTERNAL_PIDS = "VISTRA_API_EXTERNAL_PIDS";
 
     String scheme;
     String host;
@@ -26,6 +27,7 @@ public final class Configuration {
     String username;
     String password;
     String[] externalIds;
+    int externalId;
 
     public static String getBokunAccessKey() {
         return System.getenv("BOKUN_ACCESS_KEY");
@@ -58,7 +60,8 @@ public final class Configuration {
             // case VISTRA_API_PATH: configuration.apiPath = parameterValue; break;
             // case VISTRA_API_USERNAME: configuration.username = parameterValue; break;
             // case VISTRA_API_PASSWORD: configuration.password = parameterValue; break;
-            case VISTRA_API_EXTERNAL_PID: configuration.externalIds = parseJsonArray(parameterValue); break;
+            case VISTRA_API_EXTERNAL_PID: configuration.externalId = Integer.parseInt(parameterValue); break;
+            case VISTRA_API_EXTERNAL_PIDS: configuration.externalIds = parseJsonArray(parameterValue); break;
         }
     }
 
