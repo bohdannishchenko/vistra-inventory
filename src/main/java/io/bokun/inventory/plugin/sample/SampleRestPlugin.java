@@ -1231,7 +1231,10 @@ public class SampleRestPlugin {
                     long availDateMillis = avail.getJsonNumber("date").longValue();
                     String availStartTime = avail.getString("startTime");
 
+                    System.out.print(availStartTime);
+
                     if (availDateMillis == targetEpochMillis && targetTimeStr.equals(availStartTime)) {
+                        System.out.print(avail.getInt("startTimeId"));
                         matchedStartTimeId = avail.getInt("startTimeId");
                         break;
                     }
