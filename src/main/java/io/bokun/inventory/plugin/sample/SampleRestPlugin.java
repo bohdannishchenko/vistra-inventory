@@ -132,7 +132,7 @@ public class SampleRestPlugin {
         // definition.getParameters().add(asStringParameter(Configuration.VISTRA_API_PATH, false));      // e.g. /api/1
         // definition.getParameters().add(asStringParameter(Configuration.VISTRA_API_USERNAME, false));
         // definition.getParameters().add(asStringParameter(Configuration.VISTRA_API_PASSWORD, false));
-        definition.getParameters().add(asLongParameter(Configuration.VISTRA_API_EXTERNAL_PID, false));
+        // definition.getParameters().add(asLongParameter(Configuration.VISTRA_API_EXTERNAL_PID, false));
         definition.getParameters().add(asStringParameter(Configuration.VISTRA_API_EXTERNAL_PIDS, true));
 
         exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json; charset=utf-8");
@@ -199,6 +199,7 @@ public class SampleRestPlugin {
     private HttpURLConnection createHttpConnection(String method, String endpoint) throws IOException, NoSuchAlgorithmException, InvalidKeyException {
         // Build full URL
         String fullUrl = Configuration.getBokunApiBaseUrl() + endpoint;
+        System.out.print(fullUrl);
         
         // Create connection
         HttpURLConnection connection = (HttpURLConnection) new URL(fullUrl).openConnection();
@@ -288,23 +289,28 @@ public class SampleRestPlugin {
                 new InputStreamReader(exchange.getInputStream(), StandardCharsets.UTF_8),
                 SearchProductRequest.class
             );
+            System.out.print("222");
     
             Configuration configuration = Configuration.fromRestParameters(request.getParameters());
     
+            System.out.print("333");
             String[] externalIds = configuration.externalIds;
             if (externalIds == null || externalIds.length == 0) {
                 throw new IllegalArgumentException("No externalIds provided in configuration.");
             }
+            System.out.print("444");
     
             List<BasicProductInfo> products = new ArrayList<>();
     
             for (String externalId : externalIds) {
+                System.out.print("555");
                 StringBuilder pathBuilder = new StringBuilder("/activity.json/").append(externalId);
     
                 HttpURLConnection connection = createHttpConnection("GET", pathBuilder.toString());
     
                 try {
                     if (connection.getResponseCode() == 200) {
+                        System.out.print("666");
                         ProductDescription product = parseProductDescription(connection.getInputStream());
     
                         BasicProductInfo basicProductInfo = new BasicProductInfo();
@@ -317,21 +323,25 @@ public class SampleRestPlugin {
     
                         products.add(basicProductInfo);
                     } else {
+                        System.out.print("777");
                         log.warn("Non-200 response for externalId {}: {}", externalId, connection.getResponseCode());
-                        // Optional: continue or break depending on criticality
                     }
                 } finally {
+                    System.out.print("888");
                     connection.disconnect();
                 }
             }
     
+            System.out.print("11111");
             exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json");
+            System.out.print("999");
             exchange.getResponseSender().send(new Gson().toJson(products));
     
         } catch (IllegalArgumentException e) {
             exchange.setStatusCode(400);
             exchange.getResponseSender().send("{\"error\":\"" + e.getMessage() + "\"}");
         } catch (Exception e) {
+            System.out.print("Here111");
             logError("Error while searching products: ", e);
             exchange.setStatusCode(500);
             exchange.getResponseSender().send("{\"error\":\"Internal server error\"}");
