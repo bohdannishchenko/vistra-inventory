@@ -1222,8 +1222,11 @@ public class SampleRestPlugin {
                                             .toEpochMilli();
 
             int matchedStartTimeId = 0;
+            
+            System.out.print(avails.toString());
 
             if (!avails.isEmpty() && targetTime != null) {
+                System.out.print("Ok now checking");
                 String targetTimeStr = String.format("%02d:%02d", targetTime.getHour(), targetTime.getMinute());
 
                 for (JsonValue val : avails) {
