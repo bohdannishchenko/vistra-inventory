@@ -33,6 +33,8 @@ import com.squareup.okhttp.*;
 import io.bokun.inventory.plugin.api.rest.*;
 import io.bokun.inventory.plugin.api.rest.Address;
 import io.undertow.server.*;
+
+import org.apache.commons.lang3.ObjectUtils.Null;
 import org.slf4j.*;
 
 import static io.bokun.inventory.plugin.api.rest.PluginCapability.*;
@@ -1164,7 +1166,11 @@ public class SampleRestPlugin {
             activityRequest.add("pricingCategoryBookings", pricingCategoryBookings);
 
             JsonObject productInfo = getActivityProductInfo(reservationData.getProductId());
-            activityRequest.add("startTimeId", getStartTimeIdForTime(productInfo, reservationData.getTime()));
+
+            if (reservationData.getTime() != null)
+                activityRequest.add("startTimeId", getStartTimeIdForTime(productInfo, reservationData.getTime()));
+            else
+                activityRequest.add("startTimeId", 0);
 
             // Pickup places
             if (reservationData.getPickupRequired() != null) {
