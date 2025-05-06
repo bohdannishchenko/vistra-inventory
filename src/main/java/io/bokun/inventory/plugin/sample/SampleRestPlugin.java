@@ -1178,7 +1178,7 @@ public class SampleRestPlugin {
             // requestBodyBuilder.add("sendCustomerNotification", true);        
             ReservationData reservationData = request.getReservationData();
             System.out.print(reservationData.toString());
-            
+
             JsonObjectBuilder bokunRequest = Json.createObjectBuilder();
             
             // 1. Build ActivityRequest
@@ -1226,23 +1226,34 @@ public class SampleRestPlugin {
             int matchedStartTimeId = 0;
             
             System.out.print(avails.toString());
-            System.out.print(targetTime.toString());
 
-            if (!avails.isEmpty() && targetTime != null) {
-                System.out.print("Ok now checking");
-                String targetTimeStr = String.format("%02d:%02d", targetTime.getHour(), targetTime.getMinute());
+            if (!avails.isEmpty()) {
+                if (targetTime != null) {
+                    String targetTimeStr = String.format("%02d:%02d", targetTime.getHour(), targetTime.getMinute());
 
-                for (JsonValue val : avails) {
-                    JsonObject avail = val.asJsonObject();
-                    long availDateMillis = avail.getJsonNumber("date").longValue();
-                    String availStartTime = avail.getString("startTime");
-
-                    System.out.print(availStartTime);
-
-                    if (availDateMillis == targetEpochMillis && targetTimeStr.equals(availStartTime)) {
-                        System.out.print(avail.getInt("startTimeId"));
-                        matchedStartTimeId = avail.getInt("startTimeId");
-                        break;
+                    for (JsonValue val : avails) {
+                        JsonObject avail = val.asJsonObject();
+                        long availDateMillis = avail.getJsonNumber("date").longValue();
+                        String availStartTime = avail.getString("startTime");
+    
+                        System.out.print(availStartTime);
+    
+                        if (availDateMillis == targetEpochMillis && targetTimeStr.equals(availStartTime)) {
+                            System.out.print(avail.getInt("startTimeId"));
+                            matchedStartTimeId = avail.getInt("startTimeId");
+                            break;
+                        }
+                    }
+                } else {
+                    for (JsonValue val : avails) {
+                        JsonObject avail = val.asJsonObject();
+                        long availDateMillis = avail.getJsonNumber("date").longValue();
+    
+                        if (availDateMillis == targetEpochMillis) {
+                            System.out.print(avail.getInt("startTimeId"));
+                            matchedStartTimeId = avail.getInt("startTimeId");
+                            break;
+                        }
                     }
                 }
             }
