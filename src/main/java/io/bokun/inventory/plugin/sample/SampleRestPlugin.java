@@ -1177,6 +1177,8 @@ public class SampleRestPlugin {
         try {
             // requestBodyBuilder.add("sendCustomerNotification", true);        
             ReservationData reservationData = request.getReservationData();
+            System.out.print(reservationData.toString());
+            
             JsonObjectBuilder bokunRequest = Json.createObjectBuilder();
             
             // 1. Build ActivityRequest
@@ -1224,6 +1226,7 @@ public class SampleRestPlugin {
             int matchedStartTimeId = 0;
             
             System.out.print(avails.toString());
+            System.out.print(targetTime.toString());
 
             if (!avails.isEmpty() && targetTime != null) {
                 System.out.print("Ok now checking");
