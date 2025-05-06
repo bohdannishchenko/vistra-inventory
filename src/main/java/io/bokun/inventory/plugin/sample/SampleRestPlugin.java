@@ -777,6 +777,38 @@ public class SampleRestPlugin {
         }
     }
 
+    public JsonArray getBokunActivityAvailabilities(String externalId, DateYMD from, DateYMD to) {
+        String errorId = generateErrorId(); // Optional, for better logging context
+        try {
+            StringBuilder pathBuilder = new StringBuilder("/activity.json/")
+                .append(externalId)
+                .append("/availabilities?lang=EN");
+    
+            if (from != null && to != null) {
+                pathBuilder.append(String.format("&start=%04d-%02d-%02d&end=%04d-%02d-%02d",
+                    from.getYear(), from.getMonth(), from.getDay(),
+                    to.getYear(), to.getMonth(), to.getDay()));
+            }
+    
+            HttpURLConnection connection = createHttpConnection("GET", pathBuilder.toString());
+    
+            int statusCode = connection.getResponseCode();
+            if (statusCode == 200) {
+                try (JsonReader reader = Json.createReader(connection.getInputStream())) {
+                    return reader.readArray();
+                }
+            } else {
+                handleApiError(connection); // Will throw
+            }
+        } catch (Exception e) {
+            logError("Failed to fetch Bokun activity availabilities [" + errorId + "]", e);
+            throw new RuntimeException("AVAILABILITY_FETCH_ERROR_" + errorId, e);
+        }
+    
+        return Json.createArrayBuilder().build(); // Return empty array as fallback
+    }
+    
+
     /**
      * Get availability of a particular product over a date range. This request should follow GetAvailableProducts and provide more details on
      * precise dates/times for each product as well as capacity for each date. This call, however, is for a single product only (as opposed to
@@ -1176,11 +1208,37 @@ public class SampleRestPlugin {
             activityRequest.add("pricingCategoryBookings", pricingCategoryBookings);
 
             JsonObject productInfo = getActivityProductInfo(reservationData.getProductId());
+            
+            DateYMD targetDate = reservationData.getDate();
+            JsonArray avails = getBokunActivityAvailabilities(
+                reservationData.getProductId(),
+                targetDate,
+                targetDate
+            );
+            Time targetTime = reservationData.getTime();
+            long targetEpochMillis = LocalDate.of(targetDate.getYear(), targetDate.getMonth(), targetDate.getDay())
+                                            .atStartOfDay(ZoneOffset.UTC)
+                                            .toInstant()
+                                            .toEpochMilli();
 
-            if (reservationData.getTime() != null)
-                activityRequest.add("startTimeId", getStartTimeIdForTime(productInfo, reservationData.getTime()));
-            else
-                activityRequest.add("startTimeId", 0);
+            int matchedStartTimeId = 0;
+
+            if (!avails.isEmpty() && targetTime != null) {
+                String targetTimeStr = String.format("%02d:%02d", targetTime.getHour(), targetTime.getMinute());
+
+                for (JsonValue val : avails) {
+                    JsonObject avail = val.asJsonObject();
+                    long availDateMillis = avail.getJsonNumber("date").longValue();
+                    String availStartTime = avail.getString("startTime");
+
+                    if (availDateMillis == targetEpochMillis && targetTimeStr.equals(availStartTime)) {
+                        matchedStartTimeId = avail.getInt("startTimeId");
+                        break;
+                    }
+                }
+            }
+
+            activityRequest.add("startTimeId", matchedStartTimeId);  // 0 if no match
 
             // Pickup places
             if (reservationData.getPickupRequired() != null) {
@@ -1272,6 +1330,18 @@ public class SampleRestPlugin {
             StringBuilder pathBuilder = new StringBuilder("/booking.json/activity-booking/reserve-and-confirm");
             HttpURLConnection connection = createHttpConnection("POST", pathBuilder.toString());
             
+            // JsonObject builtRequest = bokunRequest.build();
+
+            // // Convert to string
+            // StringWriter stringWriter = new StringWriter();
+            // try (JsonWriter jsonWriter = Json.createWriter(stringWriter)) {
+            //     jsonWriter.writeObject(builtRequest);
+            // }
+            // String jsonString = stringWriter.toString();
+
+            // // Log it
+            // log.info("Bokun Request JSON: {}", jsonString);
+
             try {
                 // Write request body
                 try (OutputStream os = connection.getOutputStream();
