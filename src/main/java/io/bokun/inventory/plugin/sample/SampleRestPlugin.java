@@ -1239,6 +1239,7 @@ public class SampleRestPlugin {
             }
 
             activityRequest.add("startTimeId", matchedStartTimeId);  // 0 if no match
+            System.out.print("StartTimeId: " + matchedStartTimeId);
 
             // Pickup places
             if (reservationData.getPickupRequired() != null) {
