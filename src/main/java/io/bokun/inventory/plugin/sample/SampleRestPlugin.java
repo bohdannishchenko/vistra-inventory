@@ -1181,10 +1181,14 @@ public class SampleRestPlugin {
 
             if (reservationData.getCustomPickupPlace() != null) {
                 activityRequest.add("pickupPlaceDescription", reservationData.getCustomPickupPlace());
+            } else {
+                activityRequest.add("pickupPlaceDescription", "");
             }
 
             if (reservationData.getPredefinedPickupPlace() != null) {
                 activityRequest.add("pickupPlaceId", getPickupDropOffPlaceId(productInfo, reservationData.getPredefinedPickupPlace()));
+            } else {
+                activityRequest.add("pickupPlaceId", 0);
             }
 
             // Drop Off
@@ -1196,10 +1200,14 @@ public class SampleRestPlugin {
 
             if (reservationData.getCustomDropoffPlace() != null) {
                 activityRequest.add("dropoffPlaceDescription", reservationData.getCustomDropoffPlace());
+            } else {
+                activityRequest.add("dropoffPlaceDescription", "");
             }
 
             if (reservationData.getPredefinedDropoffPlace() != null) {
                 activityRequest.add("dropoffPlaceId", getPickupDropOffPlaceId(productInfo, reservationData.getPredefinedDropoffPlace()));
+            } else {
+                activityRequest.add("dropoffPlaceId", 0);
             }
 
             // Finalize
