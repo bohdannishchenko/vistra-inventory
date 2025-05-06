@@ -199,7 +199,6 @@ public class SampleRestPlugin {
     private HttpURLConnection createHttpConnection(String method, String endpoint) throws IOException, NoSuchAlgorithmException, InvalidKeyException {
         // Build full URL
         String fullUrl = Configuration.getBokunApiBaseUrl() + endpoint;
-        System.out.print(fullUrl);
         
         // Create connection
         HttpURLConnection connection = (HttpURLConnection) new URL(fullUrl).openConnection();
@@ -289,28 +288,23 @@ public class SampleRestPlugin {
                 new InputStreamReader(exchange.getInputStream(), StandardCharsets.UTF_8),
                 SearchProductRequest.class
             );
-            System.out.print("222");
     
             Configuration configuration = Configuration.fromRestParameters(request.getParameters());
     
-            System.out.print("333");
             String[] externalIds = configuration.externalIds;
             if (externalIds == null || externalIds.length == 0) {
                 throw new IllegalArgumentException("No externalIds provided in configuration.");
             }
-            System.out.print("444");
     
             List<BasicProductInfo> products = new ArrayList<>();
     
             for (String externalId : externalIds) {
-                System.out.print("555");
                 StringBuilder pathBuilder = new StringBuilder("/activity.json/").append(externalId);
     
                 HttpURLConnection connection = createHttpConnection("GET", pathBuilder.toString());
     
                 try {
                     if (connection.getResponseCode() == 200) {
-                        System.out.print("666");
                         ProductDescription product = parseProductDescription(connection.getInputStream());
     
                         BasicProductInfo basicProductInfo = new BasicProductInfo();
@@ -323,25 +317,20 @@ public class SampleRestPlugin {
     
                         products.add(basicProductInfo);
                     } else {
-                        System.out.print("777");
                         log.warn("Non-200 response for externalId {}: {}", externalId, connection.getResponseCode());
                     }
                 } finally {
-                    System.out.print("888");
                     connection.disconnect();
                 }
             }
     
-            System.out.print("11111");
             exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json");
-            System.out.print("999");
             exchange.getResponseSender().send(new Gson().toJson(products));
     
         } catch (IllegalArgumentException e) {
             exchange.setStatusCode(400);
             exchange.getResponseSender().send("{\"error\":\"" + e.getMessage() + "\"}");
         } catch (Exception e) {
-            System.out.print("Here111");
             logError("Error while searching products: ", e);
             exchange.setStatusCode(500);
             exchange.getResponseSender().send("{\"error\":\"Internal server error\"}");
@@ -1231,11 +1220,8 @@ public class SampleRestPlugin {
                         JsonObject avail = val.asJsonObject();
                         long availDateMillis = avail.getJsonNumber("date").longValue();
                         String availStartTime = avail.getString("startTime");
-    
-                        System.out.print(availStartTime);
-    
+       
                         if (availDateMillis == targetEpochMillis && targetTimeStr.equals(availStartTime)) {
-                            System.out.print(avail.getInt("startTimeId"));
                             matchedStartTimeId = avail.getInt("startTimeId");
                             break;
                         }
@@ -1246,7 +1232,6 @@ public class SampleRestPlugin {
                         long availDateMillis = avail.getJsonNumber("date").longValue();
     
                         if (availDateMillis == targetEpochMillis) {
-                            System.out.print(avail.getInt("startTimeId"));
                             matchedStartTimeId = avail.getInt("startTimeId");
                             break;
                         }
@@ -1255,7 +1240,6 @@ public class SampleRestPlugin {
             }
 
             activityRequest.add("startTimeId", matchedStartTimeId);  // 0 if no match
-            System.out.print("StartTimeId: " + matchedStartTimeId);
 
             // Pickup places
             if (reservationData.getPickupRequired() != null) {
