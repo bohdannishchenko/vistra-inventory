@@ -249,7 +249,7 @@ public class SampleRestPlugin {
             errorResponse
         );
         
-        logError(errorMessage, null);
+        logError(errorMessage, new RuntimeException("Logged Bokun API error: " + errorId));
         throw new RuntimeException("API_ERROR_" + errorId);
     }
 
