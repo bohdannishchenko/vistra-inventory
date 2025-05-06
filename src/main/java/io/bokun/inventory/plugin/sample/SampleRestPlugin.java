@@ -1175,19 +1175,31 @@ public class SampleRestPlugin {
             // Pickup places
             if (reservationData.getPickupRequired() != null) {
                 activityRequest.add("pickup", reservationData.getPickupRequired());
-                activityRequest.add("pickupPlaceDescription", reservationData.getCustomPickupPlace());
-                activityRequest.add("pickupPlaceId", getPickupDropOffPlaceId(productInfo, reservationData.getPredefinedPickupPlace()));
             } else {
                 activityRequest.add("pickup", false);
+            }
+
+            if (reservationData.getCustomPickupPlace() != null) {
+                activityRequest.add("pickupPlaceDescription", reservationData.getCustomPickupPlace());
+            }
+
+            if (reservationData.getPredefinedPickupPlace() != null) {
+                activityRequest.add("pickupPlaceId", getPickupDropOffPlaceId(productInfo, reservationData.getPredefinedPickupPlace()));
             }
 
             // Drop Off
             if (reservationData.getDropoffRequired() != null) {
                 activityRequest.add("dropoff", reservationData.getDropoffRequired());
-                activityRequest.add("dropoffPlaceDescription", reservationData.getCustomDropoffPlace());
-                activityRequest.add("dropoffPlaceId", getPickupDropOffPlaceId(productInfo, reservationData.getPredefinedDropoffPlace()));
             } else {
                 activityRequest.add("dropoff", false);
+            }
+
+            if (reservationData.getCustomDropoffPlace() != null) {
+                activityRequest.add("dropoffPlaceDescription", reservationData.getCustomDropoffPlace());
+            }
+
+            if (reservationData.getPredefinedDropoffPlace() != null) {
+                activityRequest.add("dropoffPlaceId", getPickupDropOffPlaceId(productInfo, reservationData.getPredefinedDropoffPlace()));
             }
 
             // Finalize
