@@ -1177,24 +1177,6 @@ public class SampleRestPlugin {
                 Reservation reservation = reservationData.getReservations().get(0);
 
                 activityRequest.add("rateId", Long.parseLong(reservation.getRateId()));
-
-                // Payment
-                JsonObjectBuilder manualPayment = Json.createObjectBuilder();
-
-                System.out.print(reservation.toString());
-                
-                if (reservation.getPricePerBooking() != null) {
-                    if (reservation.getPricePerBooking().getAmount() != null) {
-                        manualPayment.add("amountAsText", reservation.getPricePerBooking().getAmount());
-                        manualPayment.add("amount", Double.parseDouble(reservation.getPricePerBooking().getAmount()));
-                    }
-    
-                    if (reservation.getPricePerBooking().getCurrency() != null)
-                        manualPayment.add("currency", reservation.getPricePerBooking().getCurrency());
-                }
-                
-                manualPayment.add("paymentType", "CASH");
-                activityRequest.add("manualPayment", manualPayment);
             }
             
             // Format date (yyyy-MM-dd)
@@ -1204,6 +1186,9 @@ public class SampleRestPlugin {
             // 2. Build PricingCategoryBookings from passengers
             JsonArrayBuilder pricingCategoryBookings = Json.createArrayBuilder();
             
+            String currencyCode = "GBP";
+            Double totalPrice = 0.0;
+
             for (Reservation reservation : reservationData.getReservations()) {
                 for (Passenger passenger : reservation.getPassengers()) {
                     JsonObjectBuilder pcBooking = Json.createObjectBuilder();
@@ -1211,9 +1196,29 @@ public class SampleRestPlugin {
                     
                     // pcBooking.add("answers", passengerAnswers);
                     pricingCategoryBookings.add(pcBooking);
+                    
+                    if (passenger.getPricePerPassenger() != null) {
+                        if (passenger.getPricePerPassenger().getAmount() != null)
+                            totalPrice += Double.parseDouble(passenger.getPricePerPassenger().getAmount());
+
+                        if (passenger.getPricePerPassenger().getCurrency() != null)
+                            currencyCode = passenger.getPricePerPassenger().getCurrency();
+                    }
+
                 }
             }
-            
+
+            // Payment
+            JsonObjectBuilder manualPayment = Json.createObjectBuilder();
+           
+            manualPayment.add("amountAsText", totalPrice.toString());
+            manualPayment.add("amount", totalPrice);
+            manualPayment.add("currency", currencyCode);
+            manualPayment.add("paymentType", "CASH");
+
+            activityRequest.add("manualPayment", manualPayment);
+           
+            // pricingCategoryBookings
             activityRequest.add("pricingCategoryBookings", pricingCategoryBookings);
 
             JsonObject productInfo = getActivityProductInfo(reservationData.getProductId());
@@ -1351,17 +1356,17 @@ public class SampleRestPlugin {
             StringBuilder pathBuilder = new StringBuilder("/booking.json/activity-booking/reserve-and-confirm");
             HttpURLConnection connection = createHttpConnection("POST", pathBuilder.toString());
             
-            JsonObject builtRequest = bokunRequest.build();
+            // JsonObject builtRequest = bokunRequest.build();
 
-            // Convert to string
-            StringWriter stringWriter = new StringWriter();
-            try (JsonWriter jsonWriter = Json.createWriter(stringWriter)) {
-                jsonWriter.writeObject(builtRequest);
-            }
-            String jsonString = stringWriter.toString();
+            // // Convert to string
+            // StringWriter stringWriter = new StringWriter();
+            // try (JsonWriter jsonWriter = Json.createWriter(stringWriter)) {
+            //     jsonWriter.writeObject(builtRequest);
+            // }
+            // String jsonString = stringWriter.toString();
 
-            // Log it
-            log.info("Bokun Request JSON: {}", jsonString);
+            // // Log it
+            // log.info("Bokun Request JSON: {}", jsonString);
 
             try {
                 // Write request body
