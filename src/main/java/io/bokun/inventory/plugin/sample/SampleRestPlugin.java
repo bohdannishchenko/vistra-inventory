@@ -1449,7 +1449,7 @@ public class SampleRestPlugin {
             // Build request body
             JsonObjectBuilder bokunRequest = Json.createObjectBuilder()
                 .add("note", agentCode)
-                .add("notify", true)
+                .add("notify", false)
                 .add("refund", true);
     
             try {
