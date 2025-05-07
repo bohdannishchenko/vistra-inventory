@@ -1181,13 +1181,15 @@ public class SampleRestPlugin {
                 // Payment
                 JsonObjectBuilder manualPayment = Json.createObjectBuilder();
                 
-                if (reservation.getPricePerBooking().getAmount() != null) {
-                    manualPayment.add("amountAsText", reservation.getPricePerBooking().getAmount());
-                    manualPayment.add("amount", Double.parseDouble(reservation.getPricePerBooking().getAmount()));
+                if (reservation.getPricePerBooking() != null) {
+                    if (reservation.getPricePerBooking().getAmount() != null) {
+                        manualPayment.add("amountAsText", reservation.getPricePerBooking().getAmount());
+                        manualPayment.add("amount", Double.parseDouble(reservation.getPricePerBooking().getAmount()));
+                    }
+    
+                    if (reservation.getPricePerBooking().getCurrency() != null)
+                        manualPayment.add("currency", reservation.getPricePerBooking().getCurrency());
                 }
-
-                if (reservation.getPricePerBooking().getCurrency() != null)
-                    manualPayment.add("currency", reservation.getPricePerBooking().getCurrency());
                 
                 manualPayment.add("paymentType", "CASH");
                 activityRequest.add("manualPayment", manualPayment);
