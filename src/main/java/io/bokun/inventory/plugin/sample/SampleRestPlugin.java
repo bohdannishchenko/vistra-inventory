@@ -1180,6 +1180,8 @@ public class SampleRestPlugin {
 
                 // Payment
                 JsonObjectBuilder manualPayment = Json.createObjectBuilder();
+
+                System.out.print(reservation.toString());
                 
                 if (reservation.getPricePerBooking() != null) {
                     if (reservation.getPricePerBooking().getAmount() != null) {
