@@ -1174,7 +1174,23 @@ public class SampleRestPlugin {
             
             // Set rateId from the first reservation (assuming single rate for all passengers)
             if (!reservationData.getReservations().isEmpty()) {
-                activityRequest.add("rateId", Long.parseLong(reservationData.getReservations().get(0).getRateId()));
+                Reservation reservation = reservationData.getReservations().get(0);
+
+                activityRequest.add("rateId", Long.parseLong(reservation.getRateId()));
+
+                // Payment
+                JsonObjectBuilder manualPayment = Json.createObjectBuilder();
+                
+                if (reservation.getPricePerBooking().getAmount() != null) {
+                    manualPayment.add("amountAsText", reservation.getPricePerBooking().getAmount());
+                    manualPayment.add("amount", Double.parseDouble(reservation.getPricePerBooking().getAmount()));
+                }
+
+                if (reservation.getPricePerBooking().getCurrency() != null)
+                    manualPayment.add("currency", reservation.getPricePerBooking().getCurrency());
+                
+                manualPayment.add("paymentType", "CASH");
+                activityRequest.add("manualPayment", manualPayment);
             }
             
             // Format date (yyyy-MM-dd)
