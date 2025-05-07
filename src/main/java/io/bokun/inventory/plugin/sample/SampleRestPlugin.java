@@ -1215,6 +1215,8 @@ public class SampleRestPlugin {
             manualPayment.add("amount", totalPrice);
             manualPayment.add("currency", currencyCode);
             manualPayment.add("paymentType", "CASH");
+            manualPayment.add("comment", "Paid in person at the desk");
+            manualPayment.add("transactionDate", "2025-05-07T16:34:37.368Z");
 
             activityRequest.add("manualPayment", manualPayment);
            
