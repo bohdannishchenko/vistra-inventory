@@ -1316,7 +1316,7 @@ public class SampleRestPlugin {
             bokunRequest.add("customer", customer);
             
             // 4. Add Additional Fields
-            bokunRequest.add("paymentOption", "INVOICED");
+            bokunRequest.add("paymentOption", "ENTER_MANUALLY");
             bokunRequest.add("sendCustomerNotification", true);
             
             if (reservationData.getNotes() != null) {
