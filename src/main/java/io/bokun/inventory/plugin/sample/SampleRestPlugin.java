@@ -1351,17 +1351,17 @@ public class SampleRestPlugin {
             StringBuilder pathBuilder = new StringBuilder("/booking.json/activity-booking/reserve-and-confirm");
             HttpURLConnection connection = createHttpConnection("POST", pathBuilder.toString());
             
-            // JsonObject builtRequest = bokunRequest.build();
+            JsonObject builtRequest = bokunRequest.build();
 
-            // // Convert to string
-            // StringWriter stringWriter = new StringWriter();
-            // try (JsonWriter jsonWriter = Json.createWriter(stringWriter)) {
-            //     jsonWriter.writeObject(builtRequest);
-            // }
-            // String jsonString = stringWriter.toString();
+            // Convert to string
+            StringWriter stringWriter = new StringWriter();
+            try (JsonWriter jsonWriter = Json.createWriter(stringWriter)) {
+                jsonWriter.writeObject(builtRequest);
+            }
+            String jsonString = stringWriter.toString();
 
-            // // Log it
-            // log.info("Bokun Request JSON: {}", jsonString);
+            // Log it
+            log.info("Bokun Request JSON: {}", jsonString);
 
             try {
                 // Write request body
