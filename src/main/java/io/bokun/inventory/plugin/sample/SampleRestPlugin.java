@@ -115,8 +115,8 @@ public class SampleRestPlugin {
      */
     public void getDefinition(@Nonnull HttpServerExchange exchange) {
         PluginDefinition definition = new PluginDefinition();
-        definition.setName("VISTRA Inventory API Plugin");
-        definition.setDescription("Provides availability and accepts bookings into \"The Digital Mastery Acadent\" booking system. Uses REST protocol");
+        definition.setName("Vistra Bokun2Bokun");
+        definition.setDescription("Connect Vistra Product to Bokun suppliers via Channel Manager API");
 
         definition.getCapabilities().add(AVAILABILITY);
 
@@ -1316,7 +1316,7 @@ public class SampleRestPlugin {
             bokunRequest.add("customer", customer);
             
             // 4. Add Additional Fields
-            bokunRequest.add("paymentOption", "NOT_PAID");
+            bokunRequest.add("paymentOption", "INVOICED");
             bokunRequest.add("sendCustomerNotification", true);
             
             if (reservationData.getNotes() != null) {
