@@ -1344,7 +1344,7 @@ public class SampleRestPlugin {
             
             // 4. Add Additional Fields
             bokunRequest.add("paymentOption", "NOT_PAID");
-            bokunRequest.add("sendCustomerNotification", true);
+            bokunRequest.add("sendCustomerNotification", false);
             
             if (reservationData.getNotes() != null) {
                 bokunRequest.add("note", reservationData.getNotes());
