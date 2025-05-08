@@ -1208,17 +1208,17 @@ public class SampleRestPlugin {
                 }
             }
 
-            // Payment
-            JsonObjectBuilder manualPayment = Json.createObjectBuilder();
+            // // Payment
+            // JsonObjectBuilder manualPayment = Json.createObjectBuilder();
            
-            manualPayment.add("amountAsText", totalPrice.toString());
-            manualPayment.add("amount", totalPrice);
-            manualPayment.add("currency", currencyCode);
-            manualPayment.add("paymentType", "CASH");
-            manualPayment.add("comment", "Paid in person at the desk");
-            manualPayment.add("transactionDate", "2025-05-07T16:34:37.368Z");
+            // manualPayment.add("amountAsText", totalPrice.toString());
+            // manualPayment.add("amount", totalPrice);
+            // manualPayment.add("currency", currencyCode);
+            // manualPayment.add("paymentType", "CASH");
+            // manualPayment.add("comment", "Paid in person at the desk");
+            // manualPayment.add("transactionDate", "2025-05-07T16:34:37.368Z");
 
-            activityRequest.add("manualPayment", manualPayment);
+            // activityRequest.add("manualPayment", manualPayment);
            
             // pricingCategoryBookings
             activityRequest.add("pricingCategoryBookings", pricingCategoryBookings);
@@ -1343,7 +1343,7 @@ public class SampleRestPlugin {
             bokunRequest.add("customer", customer);
             
             // 4. Add Additional Fields
-            bokunRequest.add("paymentOption", "ENTER_MANUALLY");
+            bokunRequest.add("paymentOption", "NOT_PAID");
             bokunRequest.add("sendCustomerNotification", true);
             
             if (reservationData.getNotes() != null) {
