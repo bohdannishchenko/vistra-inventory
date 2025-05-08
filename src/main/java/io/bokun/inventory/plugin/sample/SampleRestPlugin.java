@@ -1164,7 +1164,6 @@ public class SampleRestPlugin {
         processBookingSourceInfo(request.getReservationData().getBookingSource());
         
         try {
-            // requestBodyBuilder.add("sendCustomerNotification", true);        
             ReservationData reservationData = request.getReservationData();
             JsonObjectBuilder bokunRequest = Json.createObjectBuilder();
             
