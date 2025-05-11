@@ -1168,6 +1168,15 @@ public class SampleRestPlugin {
             ReservationData reservationData = request.getReservationData();
             JsonObjectBuilder bokunRequest = Json.createObjectBuilder();
             
+            // checkoutOption
+            bokunRequest.add("checkoutOption", "CUSTOMER_FULL_PAYMENT");
+
+            // paymentMethod
+            bokunRequest.add("paymentMethod", "CASH");
+
+            // source
+            bokunRequest.add("source", "DIRECT_REQUEST");
+            
             // 1. Build ActivityRequest
             JsonObjectBuilder activityRequest = Json.createObjectBuilder();
             activityRequest.add("activityId", Long.parseLong(request.getReservationData().getProductId()));
@@ -1182,47 +1191,8 @@ public class SampleRestPlugin {
             // Format date (yyyy-MM-dd)
             DateYMD date = reservationData.getDate();
             activityRequest.add("date", String.format("%04d-%02d-%02d", date.getYear(), date.getMonth(), date.getDay()));
-            
-            // 2. Build PricingCategoryBookings from passengers
-            JsonArrayBuilder pricingCategoryBookings = Json.createArrayBuilder();
-            
-            String currencyCode = "GBP";
-            Double totalPrice = 0.0;
 
-            for (Reservation reservation : reservationData.getReservations()) {
-                for (Passenger passenger : reservation.getPassengers()) {
-                    JsonObjectBuilder pcBooking = Json.createObjectBuilder();
-                    pcBooking.add("pricingCategoryId", Long.parseLong(passenger.getPricingCategoryId()));
-                    
-                    // pcBooking.add("answers", passengerAnswers);
-                    pricingCategoryBookings.add(pcBooking);
-                    
-                    if (passenger.getPricePerPassenger() != null) {
-                        if (passenger.getPricePerPassenger().getAmount() != null)
-                            totalPrice += Double.parseDouble(passenger.getPricePerPassenger().getAmount());
-
-                        if (passenger.getPricePerPassenger().getCurrency() != null)
-                            currencyCode = passenger.getPricePerPassenger().getCurrency();
-                    }
-
-                }
-            }
-
-            // // Payment
-            // JsonObjectBuilder manualPayment = Json.createObjectBuilder();
-           
-            // manualPayment.add("amountAsText", totalPrice.toString());
-            // manualPayment.add("amount", totalPrice);
-            // manualPayment.add("currency", currencyCode);
-            // manualPayment.add("paymentType", "CASH");
-            // manualPayment.add("comment", "Paid in person at the desk");
-            // manualPayment.add("transactionDate", "2025-05-07T16:34:37.368Z");
-
-            // activityRequest.add("manualPayment", manualPayment);
-           
-            // pricingCategoryBookings
-            activityRequest.add("pricingCategoryBookings", pricingCategoryBookings);
-
+            // StartTimeId
             JsonObject productInfo = getActivityProductInfo(reservationData.getProductId());
             
             DateYMD targetDate = reservationData.getDate();
@@ -1306,7 +1276,26 @@ public class SampleRestPlugin {
                 activityRequest.add("dropoffPlaceId", 0);
             }
 
+            if (reservationData.getNotes() != null) {
+                activityRequest.add("note", reservationData.getNotes());
+            }
+
             // Finalize
+            JsonObjectBuilder directBooking = Json.createObjectBuilder();
+
+            
+            JsonArrayBuilder activityBookings = Json.createArrayBuilder();
+            activityBookings.add(activityRequest);
+
+            directBooking.add("activityBookings", activityBookings.build());
+            bokunRequest.add("directBooking", directBooking.build());
+            bokunRequest.add("sendNotificationToMainContact", false);
+            
+
+
+
+
+
             bokunRequest.add("activityRequest", activityRequest);
             
             // 3. Build Customer
@@ -1345,11 +1334,7 @@ public class SampleRestPlugin {
             // 4. Add Additional Fields
             bokunRequest.add("paymentOption", "NOT_PAID");
             bokunRequest.add("sendCustomerNotification", true);
-            
-            if (reservationData.getNotes() != null) {
-                bokunRequest.add("note", reservationData.getNotes());
-            }
-            
+                        
             if (reservationData.getPlatformId() != null) {
                 bokunRequest.add("externalBookingReference", reservationData.getPlatformId());
             }
