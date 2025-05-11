@@ -1166,16 +1166,17 @@ public class SampleRestPlugin {
         try {
             ReservationData reservationData = request.getReservationData();
             JsonObjectBuilder bokunRequest = Json.createObjectBuilder();
+            JsonObjectBuilder bookingRequest = Json.createObjectBuilder();
             
             // checkoutOption
             bokunRequest.add("checkoutOption", "CUSTOMER_FULL_PAYMENT");
 
             // paymentMethod
-            bokunRequest.add("paymentMethod", "CASH");
+            bokunRequest.add("paymentMethod", "RESERVE_FOR_EXTERNAL_PAYMENT");
 
             // source
             bokunRequest.add("source", "DIRECT_REQUEST");
-            
+
             // 1. Build ActivityRequest
             JsonObjectBuilder activityRequest = Json.createObjectBuilder();
             activityRequest.add("activityId", Long.parseLong(request.getReservationData().getProductId()));
@@ -1279,17 +1280,142 @@ public class SampleRestPlugin {
                 activityRequest.add("note", reservationData.getNotes());
             }
 
+            String currencyCode = "GBP";
+            Double totalPrice = 0.0;
+
+            JsonArrayBuilder passengersArray = Json.createArrayBuilder();
+
+            for (Reservation reservation : reservationData.getReservations()) {
+                for (Passenger passenger : reservation.getPassengers()) {
+                    JsonObjectBuilder passengerJson = Json.createObjectBuilder();
+                    passengerJson.add("pricingCategoryId", Long.parseLong(passenger.getPricingCategoryId()));
+
+                    // Build passengerDetails (custom answers)
+                    JsonArrayBuilder passengerDetails = Json.createArrayBuilder();
+                    Contact contact = passenger.getContact();
+                    
+                    if (contact.getFirstName() != null) {
+                        passengerDetails.add(Json.createObjectBuilder()
+                            .add("questionId", "firstName")
+                            .add("values", Json.createArrayBuilder().add(contact.getFirstName())));
+                    }
+
+                    if (contact.getLastName() != null) {
+                        passengerDetails.add(Json.createObjectBuilder()
+                            .add("questionId", "lastName")
+                            .add("values", Json.createArrayBuilder().add(contact.getLastName())));
+                    }
+
+                    if (contact.getEmail() != null) {
+                        passengerDetails.add(Json.createObjectBuilder()
+                            .add("questionId", "email")
+                            .add("values", Json.createArrayBuilder().add(contact.getEmail())));
+                    }
+
+                    if (contact.getTitle() != null) {
+                        passengerDetails.add(Json.createObjectBuilder()
+                            .add("questionId", "title")
+                            .add("values", Json.createArrayBuilder().add(contact.getTitle().toString())));
+                    }
+
+                    if (contact.getPhone() != null) {
+                        passengerDetails.add(Json.createObjectBuilder()
+                            .add("questionId", "phoneNumber")
+                            .add("values", Json.createArrayBuilder().add(contact.getPhone())));
+                    }
+
+                    if (contact.getLanguage() != null) {
+                        passengerDetails.add(Json.createObjectBuilder()
+                            .add("questionId", "language")
+                            .add("values", Json.createArrayBuilder().add(contact.getLanguage())));
+                    }
+
+                    if (contact.getNationality() != null) {
+                        passengerDetails.add(Json.createObjectBuilder()
+                            .add("questionId", "nationality")
+                            .add("values", Json.createArrayBuilder().add(contact.getNationality())));
+                    }
+
+                    if (contact.getCountry() != null) {
+                        passengerDetails.add(Json.createObjectBuilder()
+                            .add("questionId", "country")
+                            .add("values", Json.createArrayBuilder().add(contact.getCountry())));
+                    }
+
+                    if (contact.getGender() != null) {
+                        passengerDetails.add(Json.createObjectBuilder()
+                            .add("questionId", "sex")
+                            .add("values", Json.createArrayBuilder().add(contact.getGender().toString())));
+                    }
+
+                    if (contact.getAddress() != null) {
+                        passengerDetails.add(Json.createObjectBuilder()
+                            .add("questionId", "address")
+                            .add("values", Json.createArrayBuilder().add(contact.getAddress())));
+                    }
+
+                    if (contact.getPostCode() != null) {
+                        passengerDetails.add(Json.createObjectBuilder()
+                            .add("questionId", "postCode")
+                            .add("values", Json.createArrayBuilder().add(contact.getPostCode())));
+                    }
+
+                    if (contact.getOrganization() != null) {
+                        passengerDetails.add(Json.createObjectBuilder()
+                            .add("questionId", "organization")
+                            .add("values", Json.createArrayBuilder().add(contact.getOrganization())));
+                    }
+            
+                    if (contact.getPassportNumber() != null) {
+                        passengerDetails.add(Json.createObjectBuilder()
+                            .add("questionId", "passportId")
+                            .add("values", Json.createArrayBuilder().add(contact.getPassportNumber())));
+                    }
+                        
+                    passengerJson.add("passengerDetails", passengerDetails);
+            
+                    // Build extras
+                    JsonArrayBuilder extrasArray = Json.createArrayBuilder();
+                    if (passenger.getExtraBookings() != null) {
+                        for (ExtraBooking extra : passenger.getExtraBookings()) {
+                            JsonObjectBuilder extraJson = Json.createObjectBuilder();
+                            extraJson.add("extraId", Long.parseLong(extra.getExtraId()));
+                            extraJson.add("quantity", extra.getAmount());
+            
+                            // Optional: add answers for extras if any (not shown in your model)
+                            extraJson.add("answers", Json.createArrayBuilder());
+            
+                            extrasArray.add(extraJson);
+                        }
+                    }
+            
+                    passengerJson.add("extras", extrasArray);
+                    passengersArray.add(passengerJson);
+
+                    if (passenger.getPricePerPassenger() != null) {
+                        if (passenger.getPricePerPassenger().getAmount() != null)
+                            totalPrice += Double.parseDouble(passenger.getPricePerPassenger().getAmount());
+
+                        if (passenger.getPricePerPassenger().getCurrency() != null)
+                            currencyCode = passenger.getPricePerPassenger().getCurrency();
+                    }
+
+                }
+            }
+
+            activityRequest.add("passengers", passengersArray);
+
             // directBooking
             JsonObjectBuilder directBooking = Json.createObjectBuilder();
-
-            JsonArrayBuilder activityBookings = Json.createArrayBuilder();
-            activityBookings.add(activityRequest);
-
-            directBooking.add("activityBookings", activityBookings.build());
+            JsonArray activityBookings = Json.createArrayBuilder().add(activityRequest).build();
+            directBooking.add("activityBookings",  activityBookings);
+            bookingRequest.add("activityBookings", activityBookings);
 
             JsonArrayBuilder mainContactDetails = Json.createArrayBuilder();
             Contact customerContact = reservationData.getCustomerContact();
             
+            System.out.print(customerContact.toString());
+
             if (customerContact.getFirstName() != null) {
                 JsonObjectBuilder answer = Json.createObjectBuilder();
                 answer.add("questionId", "firstName"); // use actual Bokun questionId
@@ -1338,46 +1464,37 @@ public class SampleRestPlugin {
                 answer.add("values", Json.createArrayBuilder().add(customerContact.getCountry()));
                 mainContactDetails.add(answer);
             }
-            directBooking.add("mainContactDetails", mainContactDetails);
+
+            
+            JsonArray mainContactDetailsObject = mainContactDetails.build();
+            directBooking.add("mainContactDetails", mainContactDetailsObject);
+            bookingRequest.add("mainContactDetails", mainContactDetailsObject);
             
             if (reservationData.getPlatformId() != null) {
                 directBooking.add("externalBookingReference", reservationData.getPlatformId());
             }
 
             // Add directBookign to bokunRequest
-            bokunRequest.add("directBooking", directBooking.build());
+            bokunRequest.add("directBooking", directBooking);
             bokunRequest.add("sendNotificationToMainContact", false);
             
-            String currencyCode = "GBP";
-            Double totalPrice = 0.0;
-
-            for (Reservation reservation : reservationData.getReservations()) {
-                for (Passenger passenger : reservation.getPassengers()) {
-                    // JsonObjectBuilder pcBooking = Json.createObjectBuilder();
-                    // pcBooking.add("pricingCategoryId", Long.parseLong(passenger.getPricingCategoryId()));
-                    
-                    // // pcBooking.add("answers", passengerAnswers);
-                    // pricingCategoryBookings.add(pcBooking);
-                    
-                    if (passenger.getPricePerPassenger() != null) {
-                        if (passenger.getPricePerPassenger().getAmount() != null)
-                            totalPrice += Double.parseDouble(passenger.getPricePerPassenger().getAmount());
-
-                        if (passenger.getPricePerPassenger().getCurrency() != null)
-                            currencyCode = passenger.getPricePerPassenger().getCurrency();
-                    }
-
-                }
-            }
-
             bokunRequest.add("amount", totalPrice);
             bokunRequest.add("currency", currencyCode);
 
+            // {
+            //     JsonObjectBuilder answer = Json.createObjectBuilder();
+            //     answer.add("questionId", "sendNotificationToMainContact"); // use actual Bokun questionId
+            //     answer.add("values", Json.createArrayBuilder().add(false));
+            //     mainContactDetails.add(answer);
+
+            //     bokunRequest.add("checkoutOptionAnswers", Json.createArrayBuilder().add(answer));
+            // }
+
             // Build base URL
-            StringBuilder pathBuilder = new StringBuilder("/checkout.json/submit");
-            HttpURLConnection connection = createHttpConnection("POST", pathBuilder.toString());
+            StringBuilder pathBuilder = new StringBuilder("/checkout.json/options/booking-request");
+            HttpURLConnection connection = createHttpConnection("POST", pathBuilder.toString());    
             
-            // JsonObject builtRequest = bokunRequest.build();
+            // JsonObject builtRequest = bookingRequest.build();
 
             // // Convert to string
             // StringWriter stringWriter = new StringWriter();
@@ -1386,14 +1503,14 @@ public class SampleRestPlugin {
             // }
             // String jsonString = stringWriter.toString();
 
-            // // Log it
-            // log.info("Bokun Request JSON: {}", jsonString);
+            // Log it
+            // log.info("Booking Request JSON: {}", jsonString);
 
             try {
                 // Write request body
                 try (OutputStream os = connection.getOutputStream();
                     JsonWriter writer = Json.createWriter(os)) {
-                    writer.writeObject(bokunRequest.build());
+                    writer.writeObject(bookingRequest.build());
                 }
     
                 if (connection.getResponseCode() == 200) {
@@ -1401,30 +1518,69 @@ public class SampleRestPlugin {
                     InputStream responseStream = connection.getInputStream();
     
                     try (JsonReader reader = Json.createReader(responseStream)) {
-                        JsonObject bokunResponse = reader.readObject();
+                        JsonObject bookingRequestResponse = reader.readObject();
     
-                        // Extract confirmation code from Bokun response
-                        JsonObject booking = bokunResponse.getJsonObject("booking");
-                        String confirmationCode = booking.getString("confirmationCode");
-
-                        // Call another request
-                        pathBuilder = new StringBuilder("/checkout.json/confirm-reserved/").append(confirmationCode);
+                        // Submit 
+                        pathBuilder = new StringBuilder("/checkout.json/submit");
                         connection = createHttpConnection("POST", pathBuilder.toString());
 
+                        // Write request body
+                        try (OutputStream os = connection.getOutputStream();
+                            JsonWriter writer = Json.createWriter(os)) {
+                            writer.writeObject(bokunRequest.build());
+                        }
+
+                        System.out.print("Sent request already ===================");
+                        
                         if (connection.getResponseCode() == 200) {
-                            ConfirmBookingResponse response = new ConfirmBookingResponse();
-                            SuccessfulBooking successfulBooking = new SuccessfulBooking();
-                            successfulBooking.setBookingConfirmationCode(confirmationCode);
-                            Ticket ticket = new Ticket();
-                            QrTicket qrTicket = new QrTicket();
-                            qrTicket.setTicketBarcode(confirmationCode + "_ticket");
-                            ticket.setQrTicket(qrTicket);
-                            successfulBooking.setBookingTicket(ticket);
-                            response.setSuccessfulBooking(successfulBooking);
+                            // Ok, now return the result
+                            responseStream = connection.getInputStream();
+                            System.out.print("Get input stream");
             
-                            exchange.setStatusCode(connection.getResponseCode());
-                            exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json; charset=utf-8");
-                            exchange.getResponseSender().send(new Gson().toJson(response));
+                            try (JsonReader submitResponseReader = Json.createReader(responseStream)) {
+                                JsonObject submitResponse = submitResponseReader.readObject();
+                                System.out.print("Read now");
+            
+                                // Extract confirmation code from Bokun response
+                                JsonObject booking = submitResponse.getJsonObject("booking");
+                                String confirmationCode = booking.getString("confirmationCode");
+
+                                // Call another request
+                                pathBuilder = new StringBuilder("/checkout.json/confirm-reserved/").append(confirmationCode);
+                                connection = createHttpConnection("POST", pathBuilder.toString());
+
+                                JsonObjectBuilder confirmRequestBuilder = Json.createObjectBuilder();
+                                confirmRequestBuilder.add("sendNotificationToMainContact", false);
+                                confirmRequestBuilder.add("amount", totalPrice);
+                                confirmRequestBuilder.add("currency", currencyCode);
+
+                                // Write request body
+                                try (OutputStream os = connection.getOutputStream();
+                                    JsonWriter writer = Json.createWriter(os)) {
+                                    writer.writeObject(confirmRequestBuilder.build());
+                                }
+
+                                System.out.println("Sent confirm request");
+
+                                if (connection.getResponseCode() == 200) {
+                                    ConfirmBookingResponse response = new ConfirmBookingResponse();
+                                    SuccessfulBooking successfulBooking = new SuccessfulBooking();
+                                    
+                                    successfulBooking.setBookingConfirmationCode(confirmationCode);
+                                    Ticket ticket = new Ticket();
+                                    QrTicket qrTicket = new QrTicket();
+                                    qrTicket.setTicketBarcode(confirmationCode + "_ticket");
+                                    ticket.setQrTicket(qrTicket);
+                                    successfulBooking.setBookingTicket(ticket);
+                                    response.setSuccessfulBooking(successfulBooking);
+
+                                    exchange.setStatusCode(connection.getResponseCode());
+                                    exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json; charset=utf-8");
+                                    exchange.getResponseSender().send(new Gson().toJson(response));
+                                } else {
+                                    handleApiError(connection);
+                                }
+                            }
                         } else {
                             handleApiError(connection);
                         }
@@ -1526,3 +1682,4 @@ public class SampleRestPlugin {
         log.trace("Out ::cancelBooking");
     }
 }
+
