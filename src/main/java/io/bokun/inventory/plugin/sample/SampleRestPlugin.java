@@ -1542,6 +1542,7 @@ public class SampleRestPlugin {
                             try (JsonReader submitResponseReader = Json.createReader(responseStream)) {
                                 JsonObject submitResponse = submitResponseReader.readObject();
                                 System.out.print("Read now");
+                                System.out.print(submitResponse.toString());
             
                                 // Extract confirmation code from Bokun response
                                 JsonObject booking = submitResponse.getJsonObject("booking");
