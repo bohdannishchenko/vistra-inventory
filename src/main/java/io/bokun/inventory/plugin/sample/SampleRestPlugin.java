@@ -1547,6 +1547,8 @@ public class SampleRestPlugin {
                                 // Extract confirmation code from Bokun response
                                 JsonObject booking = submitResponse.getJsonObject("booking");
                                 String confirmationCode = booking.getString("confirmationCode");
+                                String bookingCurrency = booking.getString("currency");
+                                JsonNumber bookingTotalPrice = booking.getJsonNumber("totalPrice");
 
                                 // Call another request
                                 pathBuilder = new StringBuilder("/checkout.json/confirm-reserved/").append(confirmationCode);
@@ -1554,8 +1556,8 @@ public class SampleRestPlugin {
 
                                 JsonObjectBuilder confirmRequestBuilder = Json.createObjectBuilder();
                                 confirmRequestBuilder.add("sendNotificationToMainContact", false);
-                                confirmRequestBuilder.add("amount", totalPrice);
-                                confirmRequestBuilder.add("currency", currencyCode);
+                                confirmRequestBuilder.add("amount", bookingTotalPrice);
+                                confirmRequestBuilder.add("currency", bookingCurrency);
 
                                 // Write request body
                                 try (OutputStream os = connection.getOutputStream();
