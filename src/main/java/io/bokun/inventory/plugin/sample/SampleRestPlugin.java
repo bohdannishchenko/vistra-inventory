@@ -1476,7 +1476,7 @@ public class SampleRestPlugin {
 
             // Add directBookign to bokunRequest
             bokunRequest.add("directBooking", directBooking);
-            bokunRequest.add("sendNotificationToMainContact", false);
+            bokunRequest.add("sendNotificationToMainContact", true);
             
             bokunRequest.add("amount", totalPrice);
             bokunRequest.add("currency", currencyCode);
@@ -1555,7 +1555,7 @@ public class SampleRestPlugin {
                                 connection = createHttpConnection("POST", pathBuilder.toString());
 
                                 JsonObjectBuilder confirmRequestBuilder = Json.createObjectBuilder();
-                                confirmRequestBuilder.add("sendNotificationToMainContact", false);
+                                confirmRequestBuilder.add("sendNotificationToMainContact", true);
                                 confirmRequestBuilder.add("amount", bookingTotalPrice);
                                 confirmRequestBuilder.add("currency", bookingCurrency);
 
