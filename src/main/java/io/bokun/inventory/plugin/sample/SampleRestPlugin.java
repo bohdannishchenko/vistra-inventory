@@ -1481,6 +1481,8 @@ public class SampleRestPlugin {
             bokunRequest.add("amount", totalPrice);
             bokunRequest.add("currency", currencyCode);
 
+            System.out.println("Total Price" + totalPrice + currencyCode);
+
             // {
             //     JsonObjectBuilder answer = Json.createObjectBuilder();
             //     answer.add("questionId", "sendNotificationToMainContact"); // use actual Bokun questionId
@@ -1565,7 +1567,7 @@ public class SampleRestPlugin {
                                 if (connection.getResponseCode() == 200) {
                                     ConfirmBookingResponse response = new ConfirmBookingResponse();
                                     SuccessfulBooking successfulBooking = new SuccessfulBooking();
-                                    
+
                                     successfulBooking.setBookingConfirmationCode(confirmationCode);
                                     Ticket ticket = new Ticket();
                                     QrTicket qrTicket = new QrTicket();
