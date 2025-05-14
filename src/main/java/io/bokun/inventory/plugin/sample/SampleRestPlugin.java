@@ -31,6 +31,7 @@ import com.google.gson.*;
 import com.google.inject.*;
 import com.squareup.okhttp.*;
 import io.bokun.inventory.plugin.api.rest.*;
+import io.bokun.inventory.plugin.api.rest.Duration;
 import io.bokun.inventory.plugin.api.rest.Address;
 import io.undertow.server.*;
 
@@ -449,6 +450,53 @@ public class SampleRestPlugin {
         }
     }
 
+    // Helper method to convert a weekday JSON object to OpeningHoursWeekday
+    private OpeningHoursWeekday convertWeekdayFromJson(JsonObject weekdayJson) {
+        if (weekdayJson == null) {
+            return null;
+        }
+        
+        OpeningHoursWeekday weekday = new OpeningHoursWeekday();
+        weekday.setOpen24Hours(weekdayJson.getBoolean("open24Hours", false));
+        
+        if (weekdayJson.containsKey("timeIntervals")) {
+            JsonArray intervalsArray = weekdayJson.getJsonArray("timeIntervals");
+            List<OpeningHoursTimeInterval> intervals = new ArrayList<>();
+            
+            for (JsonValue intervalValue : intervalsArray) {
+                JsonObject intervalJson = (JsonObject) intervalValue;
+                OpeningHoursTimeInterval interval = new OpeningHoursTimeInterval();
+                
+                // Convert time array to string (e.g., [9,30] -> "09:30")
+                JsonArray openFromArray = intervalJson.getJsonArray("openFrom");
+                if (openFromArray != null && openFromArray.size() >= 2) {
+                    int hour = openFromArray.getInt(0, 0);
+                    int minute = openFromArray.getInt(1, 0);
+                    interval.setOpenFrom(String.format("%02d:%02d", hour, minute));
+                }
+                
+                interval.setOpenForHours(intervalJson.getInt("openForHours", 0));
+                interval.setOpenForMinutes(intervalJson.getInt("openForMinutes", 0));
+                
+                // Handle duration/frequency
+                if (intervalJson.containsKey("frequency")) {
+                    JsonObject frequencyJson = intervalJson.getJsonObject("frequency");
+                    Duration duration = new Duration();
+                    duration.setMinutes(frequencyJson.getInt("minutes", 0));
+                    duration.setHours(frequencyJson.getInt("hours", 0));
+                    duration.setDays(frequencyJson.getInt("days", 0));
+                    duration.setWeeks(frequencyJson.getInt("weeks", 0));
+                    interval.setDuration(duration);
+                }
+                
+                intervals.add(interval);
+            }
+            
+            weekday.setTimeIntervals(intervals);
+        }
+        
+        return weekday;
+    }
     /**
      * Return detailed information about one particular product by given ID.
      */
@@ -531,18 +579,58 @@ public class SampleRestPlugin {
                 product.setRates(rates);
             }
 
-            // Location information
-            if (productJson.containsKey("locationCode")) {
-                JsonObject location = productJson.getJsonObject("locationCode");
-                product.setCountries(Collections.singletonList(location.getString("country", "")));
+            // Migrate allYearOpeningHours (defaultOpeningHours in JSON)
+            if (productJson.containsKey("defaultOpeningHours")) {
+                JsonObject defaultOpeningHoursJson = productJson.getJsonObject("defaultOpeningHours");
+                OpeningHours allYearOpeningHours = new OpeningHours();
+                
+                // Convert each weekday
+                allYearOpeningHours.setMonday(convertWeekdayFromJson(defaultOpeningHoursJson.getJsonObject("monday")));
+                allYearOpeningHours.setTuesday(convertWeekdayFromJson(defaultOpeningHoursJson.getJsonObject("tuesday")));
+                allYearOpeningHours.setWednesday(convertWeekdayFromJson(defaultOpeningHoursJson.getJsonObject("wednesday")));
+                allYearOpeningHours.setThursday(convertWeekdayFromJson(defaultOpeningHoursJson.getJsonObject("thursday")));
+                allYearOpeningHours.setFriday(convertWeekdayFromJson(defaultOpeningHoursJson.getJsonObject("friday")));
+                allYearOpeningHours.setSaturday(convertWeekdayFromJson(defaultOpeningHoursJson.getJsonObject("saturday")));
+                allYearOpeningHours.setSunday(convertWeekdayFromJson(defaultOpeningHoursJson.getJsonObject("sunday")));
+                
+                product.setAllYearOpeningHours(allYearOpeningHours);
             }
 
-            if (productJson.containsKey("googlePlace")) {
-                JsonObject place = productJson.getJsonObject("googlePlace");
-                product.setCities(Collections.singletonList(place.getString("city", "")));
+            // Migrate seasonalOpeningHours
+            if (productJson.containsKey("seasonalOpeningHours")) {
+                JsonArray seasonalHoursArray = productJson.getJsonArray("seasonalOpeningHours");
+                SeasonalOpeningHourSet seasonalOpeningHours = new SeasonalOpeningHourSet();
+                
+                for (JsonValue seasonalValue : seasonalHoursArray) {
+                    JsonObject seasonalJson = (JsonObject) seasonalValue;
+                    SeasonalOpeningHours seasonal = new SeasonalOpeningHours();
+                   
+                    OpeningHours openingHours = new OpeningHours();
+
+                    // Convert each weekday
+                    openingHours.setMonday(convertWeekdayFromJson(seasonalJson.getJsonObject("monday")));
+                    openingHours.setTuesday(convertWeekdayFromJson(seasonalJson.getJsonObject("tuesday")));
+                    openingHours.setWednesday(convertWeekdayFromJson(seasonalJson.getJsonObject("wednesday")));
+                    openingHours.setThursday(convertWeekdayFromJson(seasonalJson.getJsonObject("thursday")));
+                    openingHours.setFriday(convertWeekdayFromJson(seasonalJson.getJsonObject("friday")));
+                    openingHours.setSaturday(convertWeekdayFromJson(seasonalJson.getJsonObject("saturday")));
+                    openingHours.setSunday(convertWeekdayFromJson(seasonalJson.getJsonObject("sunday")));
+                    
+                    // Set seasonal dates
+                    seasonal.setStartMonth(seasonalJson.getInt("startMonth", 0));
+                    seasonal.setStartDay(seasonalJson.getInt("startDay", 0));
+                    seasonal.setEndMonth(seasonalJson.getInt("endMonth", 0));
+                    seasonal.setEndDay(seasonalJson.getInt("endDay", 0));
+
+                    seasonal.setOpeningHours(openingHours);
+                    
+                    seasonalOpeningHours.addSeasonalOpeningHoursItem(seasonal);
+                }
+                
+                product.setSeasonalOpeningHours(seasonalOpeningHours);
             }
 
-            // Booking information
+            // Booking Type
             if (productJson.containsKey("bookingType")) {
                 product.setBookingType(BookingType.fromValue(productJson.getString("bookingType")));
 
@@ -571,32 +659,22 @@ public class SampleRestPlugin {
                 }
             }
 
-            if (productJson.containsKey("meetingType")) {
-                product.setMeetingType(MeetingType.fromValue(productJson.getString("meetingType")));
-            }
-
-            // Pickup/dropoff information
-            if (productJson.containsKey("pickupService")) {
-                product.setDropoffAvailable(productJson.getBoolean("pickupService"));
-            }
-
-            if (productJson.containsKey("pickupMinutesBefore")) {
-                product.setPickupMinutesBefore(productJson.getInt("pickupMinutesBefore", 0));
-            }
-
+            // customPickupAllowed
             if (productJson.containsKey("customPickupAllowed")) {
                 product.setCustomPickupPlaceAllowed(productJson.getBoolean("customPickupAllowed", false));
             }
 
-            if (productJson.containsKey("customDropoffAllowed")) {
-                product.setCustomDropoffPlaceAllowed(productJson.getBoolean("customDropoffAllowed", false));
-            }
-            
+            // pickupMinutesBefore
+            product.setPickupMinutesBefore(productJson.getInt("pickupMinutesBefore", 0));
+
+            // pickupPlaces
             if (productJson.containsKey("startPoints")) {
                 List<PickupDropoffPlace> pickupPlaces = new ArrayList<>();
+
                 for (JsonValue point : productJson.getJsonArray("startPoints")) {
                     JsonObject pointJson = (JsonObject) point;
                     PickupDropoffPlace place = new PickupDropoffPlace();
+
                     place.setTitle(pointJson.getString("title", ""));
 
                     if (pointJson.containsKey("address")) {
@@ -610,13 +688,22 @@ public class SampleRestPlugin {
                         address.setPostalCode(addressJson.getString("postalCode", ""));
                         address.setCountryCode(addressJson.getString("countryCode", ""));
 
-                        // if (addressJson.containsKey("geoPoint")) {
-                        //     JsonObject geoPointJson = addressJson.getJsonObject("geoPoint");
-                        //     GeoPoint geoPoint = new GeoPoint();
-                        //     geoPoint.setLatitude(geoPointJson.getJsonNumber("lat").doubleValue());
-                        //     geoPoint.setLongitude(geoPointJson.getJsonNumber("lng").doubleValue());
-                        //     address.setGeoPoint(geoPoint);
-                        // }
+                        if (addressJson.containsKey("geoPoint")) {
+                            JsonObject geoPointJson = addressJson.getJsonObject("geoPoint");
+                            GeoPoint geoPoint = new GeoPoint();
+                            geoPoint.setLatitude(geoPointJson.getJsonNumber("latitude").doubleValue());
+                            geoPoint.setLongitude(geoPointJson.getJsonNumber("longitude").doubleValue());
+                            address.setGeoPoint(geoPoint);
+                        }
+
+                        if (addressJson.containsKey("unLocode")) {
+                            JsonObject unLocodeObject = addressJson.getJsonObject("unLocode");
+                            UnLocode unLocode = new UnLocode();
+                            unLocode.setCountry(unLocodeObject.getString("country", ""));
+                            unLocode.setCity(unLocodeObject.getString("city", ""));
+
+                            address.setUnLocode(unLocode);
+                        }
 
                         place.setAddress(address);
                     }
@@ -625,6 +712,19 @@ public class SampleRestPlugin {
                 }
                 product.setPickupPlaces(pickupPlaces);
             }
+
+            // dropoffAvailable
+            if (productJson.containsKey("dropoffService")) {
+                product.setDropoffAvailable(productJson.getBoolean("dropoffService", false));
+            }
+
+            // customDropoffAllowed
+            if (productJson.containsKey("customDropoffAllowed")) {
+                product.setCustomDropoffPlaceAllowed(productJson.getBoolean("customDropoffAllowed", false));
+            }
+
+            // dropoffPlaces
+
 
             // Product category
             if (productJson.containsKey("productCategory")) {
@@ -649,6 +749,95 @@ public class SampleRestPlugin {
 
                     product.setTicketType(ticketType);
                 }
+            }
+
+            // Location information
+            if (productJson.containsKey("googlePlace")) {
+                JsonObject location = productJson.getJsonObject("googlePlace");
+                product.setCountries(Collections.singletonList(location.getString("country", "")));
+                product.setCities(Collections.singletonList(location.getString("city", "")));
+            }
+
+            // Meeting type
+            if (productJson.containsKey("meetingType")) {
+                product.setMeetingType(MeetingType.fromValue(productJson.getString("meetingType")));
+            }
+
+            // enforcedLeadPassengerFields
+            if (productJson.containsKey("passengerFields")) {
+                List<ContactField> enforcedLeadPassengerFields = new ArrayList<>();
+
+                for (JsonValue point : productJson.getJsonArray("passengerFields")) {
+                    JsonObject fieldObject = point.asJsonObject();
+                    if (fieldObject.getBoolean("required", false)) {
+                        // If true
+                        String field = fieldObject.getString("field", "");
+
+                        if (field.equals("PHONE_NUMBER") ) {
+                            enforcedLeadPassengerFields.add(ContactField.PHONE);
+                        } else if (field.equals("PASSPORT_ID")) {
+                            enforcedLeadPassengerFields.add(ContactField.PASSPORT_NUMBER);
+                        } else {
+                            if (ContactField.fromValue(field) != null)
+                                enforcedLeadPassengerFields.add(ContactField.fromValue(field));
+                        }
+                    }
+                }
+            }
+
+            // enforcedTravellerFields
+            if (productJson.containsKey("mainContactFields")) {
+                List<ContactField> enforcedTravellerFields = new ArrayList<>();
+
+                for (JsonValue point : productJson.getJsonArray("mainContactFields")) {
+                    JsonObject fieldObject = point.asJsonObject();
+                    if (fieldObject.getBoolean("required", false)) {
+                        // If true
+                        String field = fieldObject.getString("field", "");
+
+                        if (field.equals("PHONE_NUMBER") ) {
+                            enforcedTravellerFields.add(ContactField.PHONE);
+                        } else if (field.equals("PASSPORT_ID")) {
+                            enforcedTravellerFields.add(ContactField.PASSPORT_NUMBER);
+                        } else {
+                            if (ContactField.fromValue(field) != null)
+                            enforcedTravellerFields.add(ContactField.fromValue(field));
+                        }
+                    }
+                }
+            }
+
+            // extras
+            if (productJson.containsKey("bookableExtras")) {
+                List<Extra> extras = new ArrayList<>();
+
+                for (JsonValue arrayValue : productJson.getJsonArray("bookableExtras")) {
+                    JsonObject bookableExtra = arrayValue.asJsonObject();
+                    Extra extra = new Extra();
+
+                    if (bookableExtra.containsKey("id")) {
+                        extra.setId(bookableExtra.getJsonNumber("id").toString());
+                    }
+                    if (bookableExtra.containsKey("title")) {
+                        extra.setId(bookableExtra.getString("title", ""));
+                    }
+                    if (bookableExtra.containsKey("information")) {
+                        extra.setDescription(bookableExtra.getString("information", ""));
+                    }
+                    if (bookableExtra.containsKey("maxPerBooking")) {
+                        extra.setMaxPerBooking(bookableExtra.getJsonNumber("maxPerBooking").intValue());
+                    }
+                    if (bookableExtra.containsKey("limitByPax")) {
+                        extra.setLimitByPax(bookableExtra.getBoolean("limitByPax", false));
+                    }
+                    if (bookableExtra.containsKey("increasesCapacity")) {
+                        extra.setIncreasesCapacity(bookableExtra.getBoolean("increasesCapacity", false));
+                    }
+
+                    extras.add(extra);
+                }
+
+                product.setExtras(extras);
             }
 
             return product;
