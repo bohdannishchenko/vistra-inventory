@@ -468,13 +468,19 @@ public class SampleRestPlugin {
                 }
             }
 
-            // if (productJson.containsKey("title")) {
-            //     product.setDescription(productJson.getString("title"));
-            // }
+            if (productJson.containsKey("title")) {
+                product.setName(productJson.getString("title"));
+            }
 
             if (productJson.containsKey("vendor")) {
                 if (productJson.getJsonObject("vendor").containsKey("title")) {
                     product.setDescription(productJson.getJsonObject("vendor").getString("title"));
+                }
+            } else {
+                if (productJson.containsKey("description")) {
+                    product.setDescription(productJson.getString("description"));
+                } else {
+                    product.setDescription("");
                 }
             }
             
