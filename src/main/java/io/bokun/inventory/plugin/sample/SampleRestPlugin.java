@@ -467,9 +467,16 @@ public class SampleRestPlugin {
                     product.setId(productJson.getString("id", ""));
                 }
             }
-            product.setName(productJson.getString("title"));
-            // product.setDescription(productJson.getString("description", ""));
-            product.setDescription(productJson.getJsonObject("vendor").getString("title"));
+
+            // if (productJson.containsKey("title")) {
+            //     product.setDescription(productJson.getString("title"));
+            // }
+
+            if (productJson.containsKey("vendor")) {
+                if (productJson.getJsonObject("vendor").containsKey("title")) {
+                    product.setDescription(productJson.getJsonObject("vendor").getString("title"));
+                }
+            }
             
             // Pricing categories
             if (productJson.containsKey("pricingCategories")) {
@@ -517,7 +524,7 @@ public class SampleRestPlugin {
                 }
                 product.setRates(rates);
             }
-            
+
             // Location information
             if (productJson.containsKey("locationCode")) {
                 JsonObject location = productJson.getJsonObject("locationCode");
@@ -569,6 +576,14 @@ public class SampleRestPlugin {
             
             if (productJson.containsKey("pickupMinutesBefore")) {
                 product.setPickupMinutesBefore(productJson.getInt("pickupMinutesBefore", 0));
+            }
+
+            if (productJson.containsKey("customPickupAllowed")) {
+                product.setCustomPickupPlaceAllowed(productJson.getBoolean("customPickupAllowed", false));
+            }
+
+            if (productJson.containsKey("customDropoffAllowed")) {
+                product.setCustomDropoffPlaceAllowed(productJson.getBoolean("customDropoffAllowed", false));
             }
             
             if (productJson.containsKey("startPoints")) {
@@ -633,6 +648,7 @@ public class SampleRestPlugin {
             return product;
         }
     }
+
 
     public void getProductById(HttpServerExchange exchange) {
         log.trace("In ::getProductById");
