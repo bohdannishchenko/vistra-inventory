@@ -1440,7 +1440,7 @@ public class SampleRestPlugin {
             if (customerContact.getPhone() != null) {
                 JsonObjectBuilder answer = Json.createObjectBuilder();
                 answer.add("questionId", "phoneNumber"); // use actual Bokun questionId
-                answer.add("values", Json.createArrayBuilder().add(customerContact.getPhone()));
+                answer.add("values", Json.createArrayBuilder().add(formatPhoneNumber(customerContact.getPhone())));
                 mainContactDetails.add(answer);
             }
 
@@ -1685,6 +1685,21 @@ public class SampleRestPlugin {
         } 
         
         log.trace("Out ::cancelBooking");
+    }
+    
+    private String formatPhoneNumber(String phone) {
+
+        if (phone == null || phone.isEmpty()) {
+            return phone;
+        }
+        // Remove all non-digit characters
+        String digits = phone.replaceAll("\\D", "");
+
+        // Prepend '+' if it looks like an international number
+        if (!digits.startsWith("0") && !digits.startsWith("+")) {
+            return "+" + digits;
+        }
+        return digits;
     }
 }
 
