@@ -60,10 +60,10 @@ public class SampleRestPlugin {
     // private static final String TARGET_PID = "1016497";
     // private static final String VENDOR_ID = "98806";
 
-    private static final String HMAC_SHA1_ALGORITHM = "HmacSHA1";   
+    private static final String HMAC_SHA1_ALGORITHM = "HmacSHA1";
     private static final String LOG_FILE = "bokun_plugin_errors.log";
-    
-    private static final DateTimeFormatter UTC_DATE_FORMATTER = 
+
+    private static final DateTimeFormatter UTC_DATE_FORMATTER =
         DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneOffset.UTC);
 
     private final OkHttpClient client;
@@ -147,11 +147,11 @@ public class SampleRestPlugin {
         String errorId = generateErrorId();
         String timestamp = LocalDateTime.now().format(UTC_DATE_FORMATTER);
         String stackTrace = getStackTraceAsString(throwable);
-        
+
         // Console logging
-        System.err.printf("[%s] [%s] %s\n%s\n", 
+        System.err.printf("[%s] [%s] %s\n%s\n",
             timestamp, errorId, message, stackTrace);
-        
+
         // File logging
         try {
             Files.write(
@@ -167,7 +167,7 @@ public class SampleRestPlugin {
                     throwable.toString(),
                     stackTrace
                 ).getBytes(),
-                StandardOpenOption.CREATE, 
+                StandardOpenOption.CREATE,
                 StandardOpenOption.APPEND
             );
         } catch (IOException ioException) {
@@ -199,18 +199,18 @@ public class SampleRestPlugin {
     private HttpURLConnection createHttpConnection(String method, String endpoint) throws IOException, NoSuchAlgorithmException, InvalidKeyException {
         // Build full URL
         String fullUrl = Configuration.getBokunApiBaseUrl() + endpoint;
-        
+
         // Create connection
         HttpURLConnection connection = (HttpURLConnection) new URL(fullUrl).openConnection();
-        
+
         // Generate authentication headers
         String date = Instant.now().atOffset(ZoneOffset.UTC).format(UTC_DATE_FORMATTER);
         String signature = generateSignature(
-            method, 
-            endpoint, 
+            method,
+            endpoint,
             date
         );
-        
+
         // Set request properties
         connection.setRequestMethod(method);
         connection.setRequestProperty("X-Bokun-Date", date);
@@ -218,12 +218,12 @@ public class SampleRestPlugin {
         connection.setRequestProperty("X-Bokun-Signature", signature);
         connection.setRequestProperty("Content-Type", "application/json");
         connection.setRequestProperty("Accept", "application/json");
-        
+
         // Only set DoOutput for methods that send request bodies
         if ("POST".equalsIgnoreCase(method) || "PUT".equalsIgnoreCase(method)) {
             connection.setDoOutput(true);
         }
-        
+
         return connection;
     }
 
@@ -231,7 +231,7 @@ public class SampleRestPlugin {
     private void handleApiError(HttpURLConnection connection) throws IOException {
         String errorResponse = "No error details available";
         String errorId = generateErrorId();
-        
+
         try (InputStream errorStream = connection.getErrorStream()) {
             if (errorStream != null) {
                 errorResponse = readStream(errorStream);
@@ -239,7 +239,7 @@ public class SampleRestPlugin {
         } catch (Exception e) {
             logError("Failed to read error stream", e);
         }
-        
+
         String errorMessage = String.format(
             "Bokun API Error [%s]\n" +
             "HTTP Status: %d\n" +
@@ -248,7 +248,7 @@ public class SampleRestPlugin {
             connection.getResponseCode(),
             errorResponse
         );
-        
+
         logError(errorMessage, new RuntimeException("Logged Bokun API error: " + errorId));
         throw new RuntimeException("API_ERROR_" + errorId);
     }
@@ -258,10 +258,10 @@ public class SampleRestPlugin {
         String apiPath,
         String date
     ) throws NoSuchAlgorithmException, InvalidKeyException {
-                
+
         // 2. Create the message to sign
         String message = date + Configuration.getBokunAccessKey() + httpMethod + apiPath;
-        
+
         System.out.println(httpMethod + " " + apiPath);
 
         // 3. Create HMAC-SHA1 key
@@ -269,44 +269,44 @@ public class SampleRestPlugin {
             Configuration.getBokunSecretKey().getBytes(StandardCharsets.UTF_8),
             HMAC_SHA1_ALGORITHM
         );
-        
+
         // 4. Calculate HMAC-SHA1 signature
         Mac mac = Mac.getInstance(HMAC_SHA1_ALGORITHM);
         mac.init(signingKey);
         byte[] rawHmac = mac.doFinal(message.getBytes(StandardCharsets.UTF_8));
-        
+
         // 5. Base64 encode the result
         return Base64.getEncoder().encodeToString(rawHmac);
     }
 
     public void searchProducts(@Nonnull HttpServerExchange exchange) {
         log.trace("In ::searchProducts");
-    
+
         try {
             // 1. Parse request
             SearchProductRequest request = new Gson().fromJson(
                 new InputStreamReader(exchange.getInputStream(), StandardCharsets.UTF_8),
                 SearchProductRequest.class
             );
-    
+
             Configuration configuration = Configuration.fromRestParameters(request.getParameters());
-    
+
             String[] externalIds = configuration.externalIds;
             if (externalIds == null || externalIds.length == 0) {
                 throw new IllegalArgumentException("No externalIds provided in configuration.");
             }
-    
+
             List<BasicProductInfo> products = new ArrayList<>();
-    
+
             for (String externalId : externalIds) {
                 StringBuilder pathBuilder = new StringBuilder("/activity.json/").append(externalId);
-    
+
                 HttpURLConnection connection = createHttpConnection("GET", pathBuilder.toString());
-    
+
                 try {
                     if (connection.getResponseCode() == 200) {
                         ProductDescription product = parseProductDescription(connection.getInputStream());
-    
+
                         BasicProductInfo basicProductInfo = new BasicProductInfo();
                         basicProductInfo.setId(product.getId());
                         basicProductInfo.setName(product.getName());
@@ -314,7 +314,7 @@ public class SampleRestPlugin {
                         basicProductInfo.setPricingCategories(product.getPricingCategories());
                         basicProductInfo.setCountries(product.getCountries());
                         basicProductInfo.setCities(product.getCities());
-    
+
                         products.add(basicProductInfo);
                     } else {
                         log.warn("Non-200 response for externalId {}: {}", externalId, connection.getResponseCode());
@@ -323,10 +323,10 @@ public class SampleRestPlugin {
                     connection.disconnect();
                 }
             }
-    
+
             exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json");
             exchange.getResponseSender().send(new Gson().toJson(products));
-    
+
         } catch (IllegalArgumentException e) {
             exchange.setStatusCode(400);
             exchange.getResponseSender().send("{\"error\":\"" + e.getMessage() + "\"}");
@@ -335,49 +335,49 @@ public class SampleRestPlugin {
             exchange.setStatusCode(500);
             exchange.getResponseSender().send("{\"error\":\"Internal server error\"}");
         }
-    
+
         log.trace("Out ::searchProducts");
     }
-    
+
 
     private List<BasicProductInfo> parseResponse(InputStream inputStream) {
         List<BasicProductInfo> products = new ArrayList<>();
-        
+
         try (JsonReader reader = Json.createReader(inputStream)) {
             JsonObject response = reader.readObject();
             JsonArray items = response.getJsonArray("items");
-            
+
             for (JsonValue item : items) {
                 JsonObject activity = (JsonObject) item;
                 BasicProductInfo product = new BasicProductInfo();
-                
+
                 // Required fields
                 product.setId(activity.getString("id"));
                 product.setName(activity.getString("title"));
                 product.setDescription(activity.getString("summary", ""));
-                
+
                 // Pricing categories (default to Adult/Child if none specified)
                 product.setPricingCategories(new ArrayList<>());
                 PricingCategory adult = new PricingCategory();
                 adult.setId("ADULT");
                 adult.setLabel("Adult");
-                
+
                 PricingCategory child = new PricingCategory();
                 child.setId("CHILD");
                 child.setLabel("Child");
-                
+
                 product.getPricingCategories().add(adult);
                 product.getPricingCategories().add(child);
-                
+
                 // Location information
                 List<String> cities = new ArrayList<>();
                 List<String> countries = new ArrayList<>();
-                
+
                 if (activity.containsKey("locationCode")) {
                     JsonObject location = activity.getJsonObject("locationCode");
                     countries.add(location.getString("country", ""));
                 }
-                
+
                 if (activity.containsKey("googlePlace")) {
                     JsonObject place = activity.getJsonObject("googlePlace");
                     String city = place.getString("city", "");
@@ -389,14 +389,14 @@ public class SampleRestPlugin {
                         countries.add(place.getString("countryCode", ""));
                     }
                 }
-                
+
                 product.setCities(cities);
                 product.setCountries(countries);
-                
+
                 products.add(product);
             }
         }
-        
+
         return products;
     }
 
@@ -405,7 +405,7 @@ public class SampleRestPlugin {
         StringBuilder pathBuilder = new StringBuilder("/activity.json/search");
 
         HttpURLConnection connection = createHttpConnection("POST", pathBuilder.toString());
-        
+
         JsonObjectBuilder textFilterBuilder = Json.createObjectBuilder()
             .add("operator", "string")
             .add("searchExternalId", true)
@@ -413,7 +413,7 @@ public class SampleRestPlugin {
             .add("searchKeywords", true)
             .add("searchTitle", true)
             .add("wildcard", true);
-        
+
         if (request.getProductName() != null && !request.getProductName().isEmpty()) {
             textFilterBuilder.add("text", request.getProductName());
         } else {
@@ -422,7 +422,7 @@ public class SampleRestPlugin {
 
         JsonObjectBuilder requestBuilder = Json.createObjectBuilder()
             .add("textFilter", textFilterBuilder);
-                    
+
         // Write request body
         try (OutputStream os = connection.getOutputStream();
             JsonWriter writer = Json.createWriter(os)) {
@@ -434,7 +434,7 @@ public class SampleRestPlugin {
             if (connection.getResponseCode() == 200) {
                 return parseResponse(connection.getInputStream());
             } else {
-                throw new IOException("API request failed: " + connection.getResponseCode() + 
+                throw new IOException("API request failed: " + connection.getResponseCode() +
                     " - " + readErrorStream(connection));
             }
         } finally {
@@ -456,7 +456,7 @@ public class SampleRestPlugin {
         try (JsonReader reader = Json.createReader(inputStream)) {
             JsonObject productJson = reader.readObject();
             ProductDescription product = new ProductDescription();
-            
+
             // Basic information
             // Handle numeric ID
             if (productJson.containsKey("id")) {
@@ -484,7 +484,7 @@ public class SampleRestPlugin {
                 for (JsonValue cat : productJson.getJsonArray("pricingCategories")) {
                     JsonObject category = (JsonObject) cat;
                     PricingCategory pc = new PricingCategory();
-                    
+
                     // Handle numeric ID
                     if (category.containsKey("id")) {
                         JsonValue idValue = category.get("id");
@@ -502,7 +502,7 @@ public class SampleRestPlugin {
                 }
                 product.setPricingCategories(categories);
             }
-            
+
             // Rates
             if (productJson.containsKey("rates")) {
                 List<Rate> rates = new ArrayList<>();
@@ -530,12 +530,12 @@ public class SampleRestPlugin {
                 JsonObject location = productJson.getJsonObject("locationCode");
                 product.setCountries(Collections.singletonList(location.getString("country", "")));
             }
-            
+
             if (productJson.containsKey("googlePlace")) {
                 JsonObject place = productJson.getJsonObject("googlePlace");
                 product.setCities(Collections.singletonList(place.getString("city", "")));
             }
-            
+
             // Booking information
             if (productJson.containsKey("bookingType")) {
                 product.setBookingType(BookingType.fromValue(productJson.getString("bookingType")));
@@ -545,35 +545,35 @@ public class SampleRestPlugin {
                     if (productJson.containsKey("startTimes")) {
                         JsonArray startTimesArray = productJson.getJsonArray("startTimes");
                         List<Time> startTimes = new ArrayList<>();
-            
+
                         for (JsonValue value : startTimesArray) {
                             JsonObject startTimeJson = value.asJsonObject();
                             Time time = new Time();
-            
+
                             if (startTimeJson.containsKey("hour")) {
                                 time.setHour(startTimeJson.getInt("hour"));
                             }
                             if (startTimeJson.containsKey("minute")) {
                                 time.setMinute(startTimeJson.getInt("minute"));
                             }
-            
+
                             startTimes.add(time);
                         }
-            
+
                         product.setStartTimes(startTimes);
                     }
                 }
             }
-            
+
             if (productJson.containsKey("meetingType")) {
                 product.setMeetingType(MeetingType.fromValue(productJson.getString("meetingType")));
             }
-            
+
             // Pickup/dropoff information
             if (productJson.containsKey("pickupService")) {
                 product.setDropoffAvailable(productJson.getBoolean("pickupService"));
             }
-            
+
             if (productJson.containsKey("pickupMinutesBefore")) {
                 product.setPickupMinutesBefore(productJson.getInt("pickupMinutesBefore", 0));
             }
@@ -592,7 +592,7 @@ public class SampleRestPlugin {
                     JsonObject pointJson = (JsonObject) point;
                     PickupDropoffPlace place = new PickupDropoffPlace();
                     place.setTitle(pointJson.getString("title", ""));
-                    
+
                     if (pointJson.containsKey("address")) {
                         JsonObject addressJson = pointJson.getJsonObject("address");
                         Address address = new Address();
@@ -603,7 +603,7 @@ public class SampleRestPlugin {
                         address.setState(addressJson.getString("state", ""));
                         address.setPostalCode(addressJson.getString("postalCode", ""));
                         address.setCountryCode(addressJson.getString("countryCode", ""));
-                        
+
                         // if (addressJson.containsKey("geoPoint")) {
                         //     JsonObject geoPointJson = addressJson.getJsonObject("geoPoint");
                         //     GeoPoint geoPoint = new GeoPoint();
@@ -611,20 +611,20 @@ public class SampleRestPlugin {
                         //     geoPoint.setLongitude(geoPointJson.getJsonNumber("lng").doubleValue());
                         //     address.setGeoPoint(geoPoint);
                         // }
-                        
+
                         place.setAddress(address);
                     }
-                    
+
                     pickupPlaces.add(place);
                 }
                 product.setPickupPlaces(pickupPlaces);
             }
-            
+
             // Product category
             if (productJson.containsKey("productCategory")) {
                 product.setProductCategory(ProductCategory.fromValue(productJson.getString("productCategory")));
             }
-            
+
             // Ticket support
             if (productJson.containsKey("ticketPerPerson")) {
                 TicketSupport ticketSupport = productJson.getBoolean("ticketPerPerson") ? TicketSupport.TICKET_PER_PERSON :TicketSupport.TICKET_PER_BOOKING;
@@ -633,8 +633,8 @@ public class SampleRestPlugin {
                 // Ticket Type
                 if (productJson.containsKey("barcodeType")) {
                     TicketType ticketType;
-                    
-                    if (productJson.getString("barcodeType").equals("QR_CODE")) 
+
+                    if (productJson.getString("barcodeType").equals("QR_CODE"))
                         ticketType = TicketType.QR_CODE;
                     else if (productJson.getString("barcodeType").equals("DATA_MATRIX"))
                         ticketType = TicketType.DATA_MATRIX;
@@ -644,7 +644,7 @@ public class SampleRestPlugin {
                     product.setTicketType(ticketType);
                 }
             }
-            
+
             return product;
         }
     }
@@ -657,10 +657,10 @@ public class SampleRestPlugin {
         Configuration configuration = Configuration.fromRestParameters(request.getParameters());
 
         StringBuilder pathBuilder = new StringBuilder("/activity.json/").append(request.getExternalId());
-        
+
         try {
             HttpURLConnection connection = createHttpConnection("GET", pathBuilder.toString());
-            
+
             try {
                 if (connection.getResponseCode() == 200) {
                     ProductDescription product = parseProductDescription(connection.getInputStream());
@@ -670,7 +670,7 @@ public class SampleRestPlugin {
                     handleApiError(connection);
                 }
             } finally {
-                connection.disconnect();  
+                connection.disconnect();
             }
 
         } catch (IllegalArgumentException e) {
@@ -693,24 +693,24 @@ public class SampleRestPlugin {
      */
     public void getAvailableProducts(HttpServerExchange exchange) {
         log.trace("In ::getAvailableProducts");
-    
+
         try {
             // Parse request
             ProductsAvailabilityRequest request = new Gson().fromJson(
-                new InputStreamReader(exchange.getInputStream()), 
+                new InputStreamReader(exchange.getInputStream()),
                 ProductsAvailabilityRequest.class
             );
             Configuration configuration = Configuration.fromRestParameters(request.getParameters());
-    
+
             // Validate request
             if (request.getExternalProductIds() == null || request.getExternalProductIds().isEmpty()) {
                 throw new IllegalArgumentException("External product IDs are required");
             }
-    
+
             List<ProductsAvailabilityResponse> responses = new ArrayList<>();
             DateYMD from = request.getRange().getFrom();
             DateYMD to = request.getRange().getTo();
-    
+
             // Process each external product ID
             for (String externalId : request.getExternalProductIds()) {
                 try {
@@ -719,33 +719,33 @@ public class SampleRestPlugin {
                         .append(externalId)
                         .append("/availabilities")
                         .append("?includeSoldOut=false");
-    
+
                     // Add date range if specified
                     if (from != null && to != null) {
                         pathBuilder.append(String.format(
-                            "&start=%04d-%02d-%02d&end=%04d-%02d-%02d", 
+                            "&start=%04d-%02d-%02d&end=%04d-%02d-%02d",
                             from.getYear(), from.getMonth(), from.getDay(),
                             to.getYear(), to.getMonth(), to.getDay()
                         ));
                     }
-    
+
                     // Make API call
                     HttpURLConnection connection = createHttpConnection("GET", pathBuilder.toString());
-                    
+
                     try {
                         int statusCode = connection.getResponseCode();
-    
+
                         if (statusCode == 200) {
                             ProductsAvailabilityResponse response = new ProductsAvailabilityResponse();
                             response.setActualCheckDone(true);
                             response.setProductId(externalId);
-                            
+
                             responses.add(response);
                         } else {
                             // Log error but continue with other products
-                            logError("Failed to check availability for product " + externalId + 
+                            logError("Failed to check availability for product " + externalId +
                                     ". Status: " + statusCode, null);
-                            
+
                             // Add response indicating failure
                             ProductsAvailabilityResponse errorResponse = new ProductsAvailabilityResponse();
                             errorResponse.setProductId(externalId);
@@ -757,7 +757,7 @@ public class SampleRestPlugin {
                     }
                 } catch (Exception e) {
                     logError("Error checking availability for product " + externalId, e);
-                    
+
                     // Add error response for this product
                     ProductsAvailabilityResponse errorResponse = new ProductsAvailabilityResponse();
                     errorResponse.setProductId(externalId);
@@ -765,11 +765,11 @@ public class SampleRestPlugin {
                     responses.add(errorResponse);
                 }
             }
-    
+
             // Send aggregated response
             exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json; charset=utf-8");
             exchange.getResponseSender().send(new Gson().toJson(responses));
-    
+
         } catch (IllegalArgumentException e) {
             exchange.setStatusCode(400);
             exchange.getResponseSender().send("{\"error\":\"" + e.getMessage() + "\"}");
@@ -788,15 +788,15 @@ public class SampleRestPlugin {
             StringBuilder pathBuilder = new StringBuilder("/activity.json/")
                 .append(externalId)
                 .append("/availabilities?lang=EN");
-    
+
             if (from != null && to != null) {
                 pathBuilder.append(String.format("&start=%04d-%02d-%02d&end=%04d-%02d-%02d",
                     from.getYear(), from.getMonth(), from.getDay(),
                     to.getYear(), to.getMonth(), to.getDay()));
             }
-    
+
             HttpURLConnection connection = createHttpConnection("GET", pathBuilder.toString());
-    
+
             int statusCode = connection.getResponseCode();
             if (statusCode == 200) {
                 try (JsonReader reader = Json.createReader(connection.getInputStream())) {
@@ -809,10 +809,10 @@ public class SampleRestPlugin {
             logError("Failed to fetch Bokun activity availabilities [" + errorId + "]", e);
             throw new RuntimeException("AVAILABILITY_FETCH_ERROR_" + errorId, e);
         }
-    
+
         return Json.createArrayBuilder().build(); // Return empty array as fallback
     }
-    
+
 
     /**
      * Get availability of a particular product over a date range. This request should follow GetAvailableProducts and provide more details on
@@ -827,20 +827,20 @@ public class SampleRestPlugin {
 
         // At this point you might want to call your external system to do the actual search and return data back.
         // Code below just provides some mocks.
-        
+
 
         try {
             StringBuilder pathBuilder = new StringBuilder("/activity.json/").append(request.getProductId()).append("/availabilities?lang=EN");
             DateYMD from = request.getRange().getFrom();
             DateYMD to = request.getRange().getTo();
-        
+
             if (from != null && to != null) {
-                pathBuilder.append(String.format("&start=%04d-%02d-%02d&end=%04d-%02d-%02d", from.getYear(), from.getMonth(), from.getDay(), 
+                pathBuilder.append(String.format("&start=%04d-%02d-%02d&end=%04d-%02d-%02d", from.getYear(), from.getMonth(), from.getDay(),
                                     to.getYear(), to.getMonth(), to.getDay()));
             }
-                
+
             HttpURLConnection connection = createHttpConnection("GET", pathBuilder.toString());
-            
+
             try {
                 if (connection.getResponseCode() == 200) {
                     try (JsonReader reader = Json.createReader(connection.getInputStream())) {
@@ -851,49 +851,49 @@ public class SampleRestPlugin {
                             for (JsonValue item : availabilityItems) {
                                 JsonObject availability = (JsonObject) item;
                                 ProductAvailabilityWithRatesResponse response = new ProductAvailabilityWithRatesResponse();
-                                
+
                                 // Set capacity
                                 response.setCapacity(availability.getInt("availabilityCount", 0));
-                                
+
                                 // Set date (convert from timestamp to DateYMD)
                                 long timestamp = availability.getJsonNumber("date").longValue();
                                 LocalDate localDate = Instant.ofEpochMilli(timestamp)
                                     .atZone(ZoneId.systemDefault())
                                     .toLocalDate();
-                                
+
                                 DateYMD dateYMD = new DateYMD()
                                     .year(localDate.getYear())
                                     .month(localDate.getMonthValue())
                                     .day(localDate.getDayOfMonth());
                                 response.setDate(dateYMD);
-                                
+
                                 // Set time
                                 String startTime = availability.getString("startTime", "00:00");
                                 Time time = new Time()
                                     .hour(Integer.parseInt(startTime.split(":")[0]))
                                     .minute(Integer.parseInt(startTime.split(":")[1]));
                                 response.setTime(time);
-                                
+
                                 // Set rates
                                 List<RateWithPrice> rates = new ArrayList<>();
                                 JsonArray pricesByRate = availability.getJsonArray("pricesByRate");
-                                
+
                                 for (JsonValue priceItem : pricesByRate) {
                                     JsonObject priceInfo = (JsonObject) priceItem;
                                     RateWithPrice rateWithPrice = new RateWithPrice();
-                                    
+
                                     // Set rate ID
                                     rateWithPrice.setRateId(String.valueOf(priceInfo.getInt("activityRateId")));
-                                    
+
                                     // Set prices per person
                                     JsonArray pricePerCategory = priceInfo.getJsonArray("pricePerCategoryUnit");
                                     PricePerPerson pricePerPerson = new PricePerPerson();
                                     PricePerBooking pricePerBooking = new PricePerBooking();
-                                    
+
                                     for (JsonValue priceCategory : pricePerCategory) {
                                         JsonObject categoryPrice = (JsonObject) priceCategory;
                                         JsonObject amount = categoryPrice.getJsonObject("amount");
-                                        
+
                                         PricingCategoryWithPrice pricingCategoryWithPrice = new PricingCategoryWithPrice();
                                         pricingCategoryWithPrice.setPricingCategoryId(categoryPrice.getJsonNumber("id").toString());
 
@@ -905,23 +905,25 @@ public class SampleRestPlugin {
 
                                         pricePerPerson.addPricingCategoryWithPriceItem(pricingCategoryWithPrice);
                                     }
-                                    
+
                                     // Assuming first price is the main price (adjust as needed)
                                     if (!pricePerPerson.getPricingCategoryWithPrice().isEmpty()) {
                                         pricePerBooking.setPrice(pricePerPerson.getPricingCategoryWithPrice().get(0).getPrice());
                                     }
                                     rateWithPrice.setPricePerBooking(pricePerBooking);
                                     rateWithPrice.setPricePerPerson(pricePerPerson);
-                                    
+
                                     rates.add(rateWithPrice);
                                 }
-                                
+
                                 response.setRates(rates);
                                 responses.add(response);
                             }
 
                             exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json; charset=utf-8");
-                            exchange.getResponseSender().send(new Gson().toJson(responses));
+                            String response = new Gson().toJson(responses);
+                            log.trace("Out ::getProductAvailability - Response: {}", response);
+                            exchange.getResponseSender().send(response);
                         } else {
                             exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json; charset=utf-8");
                             exchange.getResponseSender().send(new Gson().toJson(ImmutableList.of()));
@@ -1023,7 +1025,7 @@ public class SampleRestPlugin {
         ticket.setQrTicket(qrTicket);
         successfulBooking.setBookingTicket(ticket);
         response.setSuccessfulBooking(successfulBooking);
-        
+
         exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json; charset=utf-8");
         exchange.getResponseSender().send(new Gson().toJson(response));
         log.trace("Out ::confirmBooking");
@@ -1097,15 +1099,15 @@ public class SampleRestPlugin {
 
     public JsonObject getActivityProductInfo(String externalId) {
         String path = "/activity.json/" + externalId;
-    
+
         try {
             HttpURLConnection connection = createHttpConnection("GET", path);
-    
+
             try {
                 if (connection.getResponseCode() == 200) {
                     try (InputStream inputStream = connection.getInputStream();
                          JsonReader reader = Json.createReader(inputStream)) {
-    
+
                         return reader.readObject();
                     }
                 } else {
@@ -1117,7 +1119,7 @@ public class SampleRestPlugin {
         } catch (Exception e) {
             logError("Error while getting activity product info: ", e);
         }
-    
+
         return Json.createObjectBuilder().build(); // Return empty JsonObject on failure
     }
 
@@ -1125,12 +1127,12 @@ public class SampleRestPlugin {
         try {
             if (productJson.containsKey("startTimes")) {
                 JsonArray startTimesArray = productJson.getJsonArray("startTimes");
-    
+
                 for (JsonValue value : startTimesArray) {
                     JsonObject startTimeJson = value.asJsonObject();
                     int hour = startTimeJson.getInt("hour", -1);
                     int minute = startTimeJson.getInt("minute", -1);
-    
+
                     if (hour == targetTime.getHour() && minute == targetTime.getMinute()) {
                         return startTimeJson.getInt("id", 0);
                     }
@@ -1139,7 +1141,7 @@ public class SampleRestPlugin {
         } catch (Exception e) {
             logError("Error while matching startTimeId: ", e);
         }
-    
+
         return 0; // No match found
     }
 
@@ -1147,11 +1149,11 @@ public class SampleRestPlugin {
         try {
             if (productJson.containsKey("startPoints")) {
                 JsonArray startPointsArray = productJson.getJsonArray("startPoints");
-    
+
                 for (JsonValue value : startPointsArray) {
                     JsonObject pointJson = value.asJsonObject();
                     String title = pointJson.getString("title", "");
-    
+
                     if (title.equalsIgnoreCase(pickupDropOffPlace.getTitle())) {
                         return pointJson.getInt("id", 0); // default to 0 if id missing
                     }
@@ -1160,7 +1162,7 @@ public class SampleRestPlugin {
         } catch (Exception e) {
             logError("Error while matching pickup place ID: ", e);
         }
-    
+
         return 0; // No match found
     }
 
@@ -1178,12 +1180,12 @@ public class SampleRestPlugin {
         // At this point you might want to call your external system to do the actual reserve&confirm and return data back.
         // Code below just provides some mocks.
         processBookingSourceInfo(request.getReservationData().getBookingSource());
-        
+
         try {
             ReservationData reservationData = request.getReservationData();
             JsonObjectBuilder bokunRequest = Json.createObjectBuilder();
             JsonObjectBuilder bookingRequest = Json.createObjectBuilder();
-            
+
             // checkoutOption
             bokunRequest.add("checkoutOption", "CUSTOMER_FULL_PAYMENT");
 
@@ -1196,21 +1198,21 @@ public class SampleRestPlugin {
             // 1. Build ActivityRequest
             JsonObjectBuilder activityRequest = Json.createObjectBuilder();
             activityRequest.add("activityId", Long.parseLong(request.getReservationData().getProductId()));
-            
+
             // Set rateId from the first reservation (assuming single rate for all passengers)
             if (!reservationData.getReservations().isEmpty()) {
                 Reservation reservation = reservationData.getReservations().get(0);
 
                 activityRequest.add("rateId", Long.parseLong(reservation.getRateId()));
             }
-            
+
             // Format date (yyyy-MM-dd)
             DateYMD date = reservationData.getDate();
             activityRequest.add("date", String.format("%04d-%02d-%02d", date.getYear(), date.getMonth(), date.getDay()));
 
             // StartTimeId
             JsonObject productInfo = getActivityProductInfo(reservationData.getProductId());
-            
+
             DateYMD targetDate = reservationData.getDate();
             JsonArray avails = getBokunActivityAvailabilities(
                 reservationData.getProductId(),
@@ -1224,7 +1226,7 @@ public class SampleRestPlugin {
                                             .toEpochMilli();
 
             int matchedStartTimeId = 0;
-            
+
             if (!avails.isEmpty()) {
                 if (targetTime != null) {
                     String targetTimeStr = String.format("%02d:%02d", targetTime.getHour(), targetTime.getMinute());
@@ -1233,7 +1235,7 @@ public class SampleRestPlugin {
                         JsonObject avail = val.asJsonObject();
                         long availDateMillis = avail.getJsonNumber("date").longValue();
                         String availStartTime = avail.getString("startTime");
-       
+
                         if (availDateMillis == targetEpochMillis && targetTimeStr.equals(availStartTime)) {
                             matchedStartTimeId = avail.getInt("startTimeId");
                             break;
@@ -1243,7 +1245,7 @@ public class SampleRestPlugin {
                     for (JsonValue val : avails) {
                         JsonObject avail = val.asJsonObject();
                         long availDateMillis = avail.getJsonNumber("date").longValue();
-    
+
                         if (availDateMillis == targetEpochMillis) {
                             matchedStartTimeId = avail.getInt("startTimeId");
                             break;
@@ -1309,7 +1311,7 @@ public class SampleRestPlugin {
                     // Build passengerDetails (custom answers)
                     JsonArrayBuilder passengerDetails = Json.createArrayBuilder();
                     Contact contact = passenger.getContact();
-                    
+
                     if (contact.getFirstName() != null) {
                         passengerDetails.add(Json.createObjectBuilder()
                             .add("questionId", "firstName")
@@ -1381,15 +1383,15 @@ public class SampleRestPlugin {
                             .add("questionId", "organization")
                             .add("values", Json.createArrayBuilder().add(contact.getOrganization())));
                     }
-            
+
                     if (contact.getPassportNumber() != null) {
                         passengerDetails.add(Json.createObjectBuilder()
                             .add("questionId", "passportId")
                             .add("values", Json.createArrayBuilder().add(contact.getPassportNumber())));
                     }
-                        
+
                     passengerJson.add("passengerDetails", passengerDetails);
-            
+
                     // Build extras
                     JsonArrayBuilder extrasArray = Json.createArrayBuilder();
                     if (passenger.getExtraBookings() != null) {
@@ -1397,14 +1399,14 @@ public class SampleRestPlugin {
                             JsonObjectBuilder extraJson = Json.createObjectBuilder();
                             extraJson.add("extraId", Long.parseLong(extra.getExtraId()));
                             extraJson.add("quantity", extra.getAmount());
-            
+
                             // Optional: add answers for extras if any (not shown in your model)
                             extraJson.add("answers", Json.createArrayBuilder());
-            
+
                             extrasArray.add(extraJson);
                         }
                     }
-            
+
                     passengerJson.add("extras", extrasArray);
                     passengersArray.add(passengerJson);
 
@@ -1429,7 +1431,7 @@ public class SampleRestPlugin {
 
             JsonArrayBuilder mainContactDetails = Json.createArrayBuilder();
             Contact customerContact = reservationData.getCustomerContact();
-            
+
             System.out.print(customerContact.toString());
 
             if (customerContact.getFirstName() != null) {
@@ -1456,7 +1458,7 @@ public class SampleRestPlugin {
             if (customerContact.getPhone() != null) {
                 JsonObjectBuilder answer = Json.createObjectBuilder();
                 answer.add("questionId", "phoneNumber"); // use actual Bokun questionId
-                answer.add("values", Json.createArrayBuilder().add(customerContact.getPhone()));
+                answer.add("values", Json.createArrayBuilder().add(formatPhoneNumber(customerContact.getPhone())));
                 mainContactDetails.add(answer);
             }
 
@@ -1481,11 +1483,11 @@ public class SampleRestPlugin {
                 mainContactDetails.add(answer);
             }
 
-            
+
             JsonArray mainContactDetailsObject = mainContactDetails.build();
             directBooking.add("mainContactDetails", mainContactDetailsObject);
             bookingRequest.add("mainContactDetails", mainContactDetailsObject);
-            
+
             if (reservationData.getPlatformId() != null) {
                 directBooking.add("externalBookingReference", reservationData.getPlatformId());
             }
@@ -1493,7 +1495,7 @@ public class SampleRestPlugin {
             // Add directBookign to bokunRequest
             bokunRequest.add("directBooking", directBooking);
             bokunRequest.add("sendNotificationToMainContact", true);
-            
+
             bokunRequest.add("amount", totalPrice);
             bokunRequest.add("currency", currencyCode);
 
@@ -1510,8 +1512,8 @@ public class SampleRestPlugin {
 
             // Build base URL
             StringBuilder pathBuilder = new StringBuilder("/checkout.json/options/booking-request");
-            HttpURLConnection connection = createHttpConnection("POST", pathBuilder.toString());    
-            
+            HttpURLConnection connection = createHttpConnection("POST", pathBuilder.toString());
+
             // JsonObject builtRequest = bookingRequest.build();
 
             // // Convert to string
@@ -1530,15 +1532,15 @@ public class SampleRestPlugin {
                     JsonWriter writer = Json.createWriter(os)) {
                     writer.writeObject(bookingRequest.build());
                 }
-    
+
                 if (connection.getResponseCode() == 200) {
                     // Ok, now return the result
                     InputStream responseStream = connection.getInputStream();
-    
+
                     try (JsonReader reader = Json.createReader(responseStream)) {
                         JsonObject bookingRequestResponse = reader.readObject();
-    
-                        // Submit 
+
+                        // Submit
                         pathBuilder = new StringBuilder("/checkout.json/submit");
                         connection = createHttpConnection("POST", pathBuilder.toString());
 
@@ -1549,17 +1551,17 @@ public class SampleRestPlugin {
                         }
 
                         System.out.print("Sent request already ===================");
-                        
+
                         if (connection.getResponseCode() == 200) {
                             // Ok, now return the result
                             responseStream = connection.getInputStream();
                             System.out.print("Get input stream");
-            
+
                             try (JsonReader submitResponseReader = Json.createReader(responseStream)) {
                                 JsonObject submitResponse = submitResponseReader.readObject();
                                 System.out.print("Read now");
                                 System.out.print(submitResponse.toString());
-            
+
                                 // Extract confirmation code from Bokun response
                                 JsonObject booking = submitResponse.getJsonObject("booking");
                                 String confirmationCode = booking.getString("confirmationCode");
@@ -1631,10 +1633,10 @@ public class SampleRestPlugin {
      */
     public void cancelBooking(HttpServerExchange exchange) {
         log.trace("In ::cancelBooking");
-    
+
         // Parse incoming request
         CancelBookingRequest request = new Gson().fromJson(
-            new InputStreamReader(exchange.getInputStream()), 
+            new InputStreamReader(exchange.getInputStream()),
             CancelBookingRequest.class
         );
         Configuration configuration = Configuration.fromRestParameters(request.getParameters());
@@ -1647,28 +1649,28 @@ public class SampleRestPlugin {
         try {
             String bookingCode = request.getBookingConfirmationCode();
             String agentCode = request.getAgentCode() != null ? request.getAgentCode() : "";
-    
+
             // Build API URL
             String apiPath = "/booking.json/cancel-booking/" + bookingCode;
             HttpURLConnection connection = createHttpConnection("POST", apiPath);
-    
+
             // Build request body
             JsonObjectBuilder bokunRequest = Json.createObjectBuilder()
                 .add("note", agentCode)
                 .add("notify", false)
                 .add("refund", true);
-    
+
             try {
                 // Write request body
                 try (OutputStream os = connection.getOutputStream();
                      JsonWriter writer = Json.createWriter(os)) {
                     writer.writeObject(bokunRequest.build());
                 }
-        
+
                 // Process response
                 int statusCode = connection.getResponseCode();
                 CancelBookingResponse response = new CancelBookingResponse();
-        
+
                 if (statusCode == 200) {
                     // Successful cancellation
                     response.setSuccessfulCancellation(new SuccessfulCancellation());
@@ -1681,7 +1683,7 @@ public class SampleRestPlugin {
                     // Failed cancellation
                     String errorResponse = readErrorStream(connection);
                     log.error("Cancellation failed with status {}: {}", statusCode, errorResponse);
-                    
+
                     FailedCancellation failedCancellation = new FailedCancellation();
                     failedCancellation.setCancellationError(errorResponse);
                     response.setFailedCancellation(failedCancellation);
@@ -1698,9 +1700,24 @@ public class SampleRestPlugin {
             log.error("Error in cancelBooking: ", e);
             exchange.setStatusCode(500);
             exchange.getResponseSender().send("{\"error\":\"Internal server error\"}");
-        } 
-        
+        }
+
         log.trace("Out ::cancelBooking");
+    }
+
+    private String formatPhoneNumber(String phone) {
+
+        if (phone == null || phone.isEmpty()) {
+            return "+447537183368";
+        }
+        // Remove all non-digit characters
+        String digits = phone.replaceAll("\\D", "");
+
+        // Prepend '+' if it looks like an international number
+        if (!digits.startsWith("0") && !digits.startsWith("+")) {
+            return "+" + digits;
+        }
+        return digits;
     }
 }
 
