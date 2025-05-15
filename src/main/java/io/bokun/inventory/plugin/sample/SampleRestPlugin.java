@@ -720,17 +720,9 @@ public class SampleRestPlugin {
                                     JsonObject unLocodeObject = addressJson.getJsonObject("unLocode");
                                     UnLocode unLocode = new UnLocode();
 
-                                    if (!unLocodeObject.getString("country", "").isEmpty())
-                                    {
-                                        unLocode.setCountry(unLocodeObject.getString("country"));
-                                    }
-
-                                    if (!unLocodeObject.getString("city", "").isEmpty()) {
-                                        unLocode.setCity(unLocodeObject.getString("city"));
-                                    }
-        
-                                    if (unLocode.getCountry() != null && unLocode.getCity() != null)
-                                        address.setUnLocode(unLocode);
+                                    unLocode.setCountry(unLocodeObject.getString("country"));
+                                    unLocode.setCity(unLocodeObject.getString("city"));
+                                    address.setUnLocode(unLocode);
                                 }
         
                                 place.setAddress(address);
@@ -785,8 +777,8 @@ public class SampleRestPlugin {
             // Location information
             if (productJson.containsKey("googlePlace")) {
                 JsonObject location = productJson.getJsonObject("googlePlace");
-                product.setCountries(Collections.singletonList(location.getString("country", "")));
-                product.setCities(Collections.singletonList(location.getString("city", "")));
+                product.setCountries(Collections.singletonList(location.getString("countryCode", "")));
+                product.setCities(Collections.singletonList(location.getString("cityCode", "")));
             }
 
             // Meeting type
