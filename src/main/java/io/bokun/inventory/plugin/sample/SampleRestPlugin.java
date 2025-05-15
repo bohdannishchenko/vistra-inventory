@@ -1152,7 +1152,7 @@ public class SampleRestPlugin {
 
                             exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json; charset=utf-8");
                             String response = new Gson().toJson(responses);
-                            // log.trace("Out ::getProductAvailability - Response: {}", response);
+                            log.trace("Out ::getProductAvailability - Response: {}", response);
                             exchange.getResponseSender().send(response);
                         } else {
                             exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json; charset=utf-8");
