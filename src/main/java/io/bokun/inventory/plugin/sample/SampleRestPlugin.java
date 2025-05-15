@@ -639,7 +639,8 @@ public class SampleRestPlugin {
                     }                    
                 }
                 
-                product.setSeasonalOpeningHours(seasonalOpeningHours);
+                if (!seasonalOpeningHours.getSeasonalOpeningHours().isEmpty())
+                    product.setSeasonalOpeningHours(seasonalOpeningHours);
             }
 
             // Booking Type
