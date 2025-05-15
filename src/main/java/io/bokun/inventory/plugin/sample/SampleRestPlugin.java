@@ -848,6 +848,12 @@ public class SampleRestPlugin {
                     if (bookableExtra.containsKey("title")) {
                         extra.setTitle(bookableExtra.getString("title", ""));
                     }
+                    if (bookableExtra.containsKey("included")) {
+                        extra.setOptional(bookableExtra.getBoolean("included", true));
+                    } else {
+                        extra.setOptional(false);    // need to check later
+                    }
+
                     if (bookableExtra.containsKey("information")) {
                         extra.setDescription(bookableExtra.getString("information", ""));
                     }
