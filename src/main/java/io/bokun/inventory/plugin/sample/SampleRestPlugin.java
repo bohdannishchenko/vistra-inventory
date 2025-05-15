@@ -719,8 +719,9 @@ public class SampleRestPlugin {
                                 if (addressJson.containsKey("unLocode")) {
                                     JsonObject unLocodeObject = addressJson.getJsonObject("unLocode");
                                     UnLocode unLocode = new UnLocode();
-                                    unLocode.setCountry(unLocodeObject.getString("country", ""));
-                                    unLocode.setCity(unLocodeObject.getString("city", ""));
+
+                                    unLocode.setCountry(unLocodeObject.getString("country", null));
+                                    unLocode.setCity(unLocodeObject.getString("city", null));
         
                                     address.setUnLocode(unLocode);
                                 }
@@ -842,7 +843,7 @@ public class SampleRestPlugin {
                         extra.setId(bookableExtra.getJsonNumber("id").toString());
                     }
                     if (bookableExtra.containsKey("title")) {
-                        extra.setId(bookableExtra.getString("title", ""));
+                        extra.setTitle(bookableExtra.getString("title", ""));
                     }
                     if (bookableExtra.containsKey("information")) {
                         extra.setDescription(bookableExtra.getString("information", ""));
