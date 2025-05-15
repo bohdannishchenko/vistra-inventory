@@ -479,17 +479,21 @@ public class SampleRestPlugin {
                 interval.setOpenForMinutes(intervalJson.getInt("openForMinutes", 0));
                 
                 // Handle duration/frequency
-                if (intervalJson.containsKey("frequency")) {
-                    JsonObject frequencyJson = intervalJson.getJsonObject("frequency");
-                    Duration duration = new Duration();
-                    duration.setMinutes(frequencyJson.getInt("minutes", 0));
-                    duration.setHours(frequencyJson.getInt("hours", 0));
-                    duration.setDays(frequencyJson.getInt("days", 0));
-                    duration.setWeeks(frequencyJson.getInt("weeks", 0));
-                    interval.setDuration(duration);
+                if (intervalJson.containsKey("frequency"))  {
+                    JsonValue frequencyValue = intervalJson.get("frequency");
+                    if (frequencyValue.getValueType() == JsonValue.ValueType.OBJECT) {
+                        JsonObject frequencyJson = intervalJson.getJsonObject("frequency");
+                        Duration duration = new Duration();
+                        duration.setMinutes(frequencyJson.getInt("minutes", 0));
+                        duration.setHours(frequencyJson.getInt("hours", 0));
+                        duration.setDays(frequencyJson.getInt("days", 0));
+                        duration.setWeeks(frequencyJson.getInt("weeks", 0));
+                        interval.setDuration(duration);
+                    }
                 }
                 
                 intervals.add(interval);
+                
             }
             
             weekday.setTimeIntervals(intervals);
