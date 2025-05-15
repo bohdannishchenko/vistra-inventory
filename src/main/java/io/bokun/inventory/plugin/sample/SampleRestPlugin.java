@@ -1140,8 +1140,12 @@ public class SampleRestPlugin {
                                     if (!pricePerPerson.getPricingCategoryWithPrice().isEmpty()) {
                                         pricePerBooking.setPrice(pricePerPerson.getPricingCategoryWithPrice().get(0).getPrice());
                                     }
-                                    rateWithPrice.setPricePerBooking(pricePerBooking);
-                                    rateWithPrice.setPricePerPerson(pricePerPerson);
+
+                                    if (pricePerBooking.getPrice() != null)
+                                        rateWithPrice.setPricePerBooking(pricePerBooking);
+
+                                    if (!pricePerPerson.getPricingCategoryWithPrice().isEmpty())
+                                        rateWithPrice.setPricePerPerson(pricePerPerson);
 
                                     rates.add(rateWithPrice);
                                 }
