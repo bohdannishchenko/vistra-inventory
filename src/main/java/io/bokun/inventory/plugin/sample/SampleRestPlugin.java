@@ -681,63 +681,63 @@ public class SampleRestPlugin {
 
             // pickupPlaces
             if (product.getCustomPickupPlaceAllowed()) {
-                if (productJson.containsKey("startPoints")) {
-                    List<PickupDropoffPlace> pickupPlaces = new ArrayList<>();
-    
-                    for (JsonValue point : productJson.getJsonArray("startPoints")) {
-                        if (point.getValueType() == JsonValue.ValueType.OBJECT) {
-                            JsonObject pointJson = (JsonObject) point;
-                            PickupDropoffPlace place = new PickupDropoffPlace();
-        
-                            place.setTitle(pointJson.getString("title", ""));
-        
-                            if (pointJson.containsKey("address")) {
-                                JsonValue addressValue = pointJson.get("address");
-    
-                                if (addressValue.getValueType() == JsonValue.ValueType.OBJECT) {
-                                    JsonObject addressJson = pointJson.getJsonObject("address");
-                                    Address address = new Address();
-    
-                                    address.setAddressLine1(addressJson.getString("addressLine1", ""));
-                                    address.setAddressLine2(addressJson.getString("addressLine2", ""));
-                                    address.setAddressLine3(addressJson.getString("addressLine3", ""));
-                                    address.setCity(addressJson.getString("city", ""));
-                                    address.setState(addressJson.getString("state", ""));
-                                    address.setPostalCode(addressJson.getString("postalCode", ""));
-    
-                                    if (addressJson.containsKey("countryCode")) {
-                                        address.setCountryCode(addressJson.getString("countryCode"));
-                                    }
-            
-                                    if (addressJson.containsKey("geoPoint")) {
-                                        JsonObject geoPointJson = addressJson.getJsonObject("geoPoint");
-                                        GeoPoint geoPoint = new GeoPoint();
-                                        geoPoint.setLatitude(geoPointJson.getJsonNumber("latitude").doubleValue());
-                                        geoPoint.setLongitude(geoPointJson.getJsonNumber("longitude").doubleValue());
-                                        address.setGeoPoint(geoPoint);
-                                    }
-            
-                                    if (addressJson.containsKey("unLocode")) {
-                                        JsonObject unLocodeObject = addressJson.getJsonObject("unLocode");
-                                        UnLocode unLocode = new UnLocode();
-    
-                                        unLocode.setCountry(unLocodeObject.getString("country"));
-                                        unLocode.setCity(unLocodeObject.getString("city"));
-                                        address.setUnLocode(unLocode);
-                                    }
-            
-                                    place.setAddress(address);
-                                }
-                            }
-        
-                            pickupPlaces.add(place);
-                        }
-                        
-                    }
-                    product.setPickupPlaces(pickupPlaces);
-                }
+                
             }
-            
+            if (productJson.containsKey("startPoints")) {
+                List<PickupDropoffPlace> pickupPlaces = new ArrayList<>();
+
+                for (JsonValue point : productJson.getJsonArray("startPoints")) {
+                    if (point.getValueType() == JsonValue.ValueType.OBJECT) {
+                        JsonObject pointJson = (JsonObject) point;
+                        PickupDropoffPlace place = new PickupDropoffPlace();
+    
+                        place.setTitle(pointJson.getString("title", ""));
+    
+                        if (pointJson.containsKey("address")) {
+                            JsonValue addressValue = pointJson.get("address");
+
+                            if (addressValue.getValueType() == JsonValue.ValueType.OBJECT) {
+                                JsonObject addressJson = pointJson.getJsonObject("address");
+                                Address address = new Address();
+
+                                address.setAddressLine1(addressJson.getString("addressLine1", ""));
+                                address.setAddressLine2(addressJson.getString("addressLine2", ""));
+                                address.setAddressLine3(addressJson.getString("addressLine3", ""));
+                                address.setCity(addressJson.getString("city", ""));
+                                address.setState(addressJson.getString("state", ""));
+                                address.setPostalCode(addressJson.getString("postalCode", ""));
+
+                                if (addressJson.containsKey("countryCode")) {
+                                    address.setCountryCode(addressJson.getString("countryCode"));
+                                }
+        
+                                if (addressJson.containsKey("geoPoint")) {
+                                    JsonObject geoPointJson = addressJson.getJsonObject("geoPoint");
+                                    GeoPoint geoPoint = new GeoPoint();
+                                    geoPoint.setLatitude(geoPointJson.getJsonNumber("latitude").doubleValue());
+                                    geoPoint.setLongitude(geoPointJson.getJsonNumber("longitude").doubleValue());
+                                    address.setGeoPoint(geoPoint);
+                                }
+        
+                                if (addressJson.containsKey("unLocode")) {
+                                    JsonObject unLocodeObject = addressJson.getJsonObject("unLocode");
+                                    UnLocode unLocode = new UnLocode();
+
+                                    unLocode.setCountry(unLocodeObject.getString("country"));
+                                    unLocode.setCity(unLocodeObject.getString("city"));
+                                    address.setUnLocode(unLocode);
+                                }
+        
+                                place.setAddress(address);
+                            }
+                        }
+    
+                        pickupPlaces.add(place);
+                    }
+                    
+                }
+                product.setPickupPlaces(pickupPlaces);
+            }
 
             // dropoffAvailable
             if (productJson.containsKey("dropoffService")) {
