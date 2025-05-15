@@ -29,6 +29,14 @@ public final class Configuration {
     String[] externalIds;
     int externalId;
 
+    public static String getPluginName() {
+        return System.getenv("VISTRA_PLUGIN_NAME");
+    }
+
+    public static String getPluginDescription() {
+        return System.getenv("VISTRA_PLUGIN_DESCRIPTION");
+    }
+
     public static String getBokunAccessKey() {
         return System.getenv("BOKUN_ACCESS_KEY");
     }

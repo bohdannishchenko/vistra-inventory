@@ -116,8 +116,8 @@ public class SampleRestPlugin {
      */
     public void getDefinition(@Nonnull HttpServerExchange exchange) {
         PluginDefinition definition = new PluginDefinition();
-        definition.setName("Vistra Bokun2Bokun");
-        definition.setDescription("Connect Vistra Product to Bokun suppliers via Channel Manager API");
+        definition.setName(Configuration.getPluginName());
+        definition.setDescription(Configuration.getPluginDescription());
 
         definition.getCapabilities().add(AVAILABILITY);
 
@@ -843,7 +843,6 @@ public class SampleRestPlugin {
             return product;
         }
     }
-
 
     public void getProductById(HttpServerExchange exchange) {
         log.trace("In ::getProductById");
