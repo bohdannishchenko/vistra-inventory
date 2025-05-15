@@ -691,7 +691,7 @@ public class SampleRestPlugin {
                         place.setTitle(pointJson.getString("title", ""));
     
                         if (pointJson.containsKey("address")) {
-                            JsonValue addressValue = productJson.get("address");
+                            JsonValue addressValue = pointJson.get("address");
 
                             if (addressValue.getValueType() == JsonValue.ValueType.OBJECT) {
                                 JsonObject addressJson = pointJson.getJsonObject("address");
