@@ -1118,7 +1118,6 @@ public class SampleRestPlugin {
                                     // Set prices per person
                                     JsonArray pricePerCategory = priceInfo.getJsonArray("pricePerCategoryUnit");
                                     PricePerPerson pricePerPerson = new PricePerPerson();
-                                    PricePerBooking pricePerBooking = new PricePerBooking();
 
                                     for (JsonValue priceCategory : pricePerCategory) {
                                         JsonObject categoryPrice = (JsonObject) priceCategory;
@@ -1137,15 +1136,17 @@ public class SampleRestPlugin {
                                     }
 
                                     // Assuming first price is the main price (adjust as needed)
-                                    if (!pricePerPerson.getPricingCategoryWithPrice().isEmpty()) {
-                                        pricePerBooking.setPrice(pricePerPerson.getPricingCategoryWithPrice().get(0).getPrice());
+                                    if (priceInfo.containsKey("pricePerBooking")) {
+                                        JsonObject bookingPriceObject = priceInfo.getJsonObject("pricePerBooking");
+
+                                        PricePerBooking bookingPrice = new PricePerBooking();
+                                        Price price = new Price();
+                                        price.setAmount(bookingPriceObject.getJsonNumber("amount").toString());
+                                        price.setCurrency(bookingPriceObject.getString("currency", ""));
+
+                                        bookingPrice.setPrice(price);
+                                        rateWithPrice.setPricePerBooking(bookingPrice);
                                     }
-
-                                    if (pricePerBooking.getPrice() != null)
-                                        rateWithPrice.setPricePerBooking(pricePerBooking);
-
-                                    if (!pricePerPerson.getPricingCategoryWithPrice().isEmpty())
-                                        rateWithPrice.setPricePerPerson(pricePerPerson);
 
                                     if (rateWithPrice.getPricePerBooking() != null || rateWithPrice.getPricePerPerson() != null)
                                         rates.add(rateWithPrice);
