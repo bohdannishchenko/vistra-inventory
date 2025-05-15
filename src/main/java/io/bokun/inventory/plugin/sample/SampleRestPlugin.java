@@ -586,7 +586,7 @@ public class SampleRestPlugin {
 
             // Migrate allYearOpeningHours (defaultOpeningHours in JSON)
             if (productJson.containsKey("defaultOpeningHours")) {
-                JsonValue defaultOpeningHoursValue = productJson.getValue("defaultOpeningHours");
+                JsonValue defaultOpeningHoursValue = productJson.get("defaultOpeningHours");
                 
                 if (defaultOpeningHoursValue.getValueType() == JsonValue.ValueType.OBJECT) {
                     JsonObject defaultOpeningHoursJson = productJson.getJsonObject("defaultOpeningHours");
@@ -627,7 +627,7 @@ public class SampleRestPlugin {
                         openingHours.setFriday(convertWeekdayFromJson(seasonalJson.getJsonObject("friday")));
                         openingHours.setSaturday(convertWeekdayFromJson(seasonalJson.getJsonObject("saturday")));
                         openingHours.setSunday(convertWeekdayFromJson(seasonalJson.getJsonObject("sunday")));
-                        
+
                         // Set seasonal dates
                         seasonal.setStartMonth(seasonalJson.getInt("startMonth", 0));
                         seasonal.setStartDay(seasonalJson.getInt("startDay", 0));
