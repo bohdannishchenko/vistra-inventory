@@ -892,7 +892,7 @@ public class SampleRestPlugin {
                 if (connection.getResponseCode() == 200) {
                     ProductDescription product = parseProductDescription(connection.getInputStream());
 
-                    log.trace(new Gson().toJson(product));
+                    // log.trace(new Gson().toJson(product));
 
                     exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json");
                     exchange.getResponseSender().send(new Gson().toJson(product));
@@ -1158,7 +1158,7 @@ public class SampleRestPlugin {
 
                             exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json; charset=utf-8");
                             String response = new Gson().toJson(responses);
-                            log.trace("Out ::getProductAvailability - Response: {}", response);
+                            //log.trace("Out ::getProductAvailability - Response: {}", response);
                             exchange.getResponseSender().send(response);
                         } else {
                             exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json; charset=utf-8");
@@ -1956,4 +1956,3 @@ public class SampleRestPlugin {
         return digits;
     }
 }
-
