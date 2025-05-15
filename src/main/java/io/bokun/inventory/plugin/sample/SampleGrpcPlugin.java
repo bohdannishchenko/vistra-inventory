@@ -78,8 +78,8 @@ public class SampleGrpcPlugin extends PluginApiGrpc.PluginApiImplBase {
         log.trace("In ::getDefinition");
         responseObserver.onNext(
                 PluginDefinition.newBuilder()
-                        .setName("Sample gRPC plugin")
-                        .setDescription("Provides availability and accepts bookings into <YourCompany> booking system. Uses gRPC protocol")
+                        .setName("Sandbox")
+                        .setDescription("This plugin is for testing and development")
                         .addAllCapabilities(ImmutableList.of(SUPPORTS_AVAILABILITY, SUPPORTS_RESERVATIONS, SUPPORTS_AMENDMENT, SUPPORTS_RESERVATION_CANCELLATION))
                         .addAllParameters(
                                 ImmutableList.of(
