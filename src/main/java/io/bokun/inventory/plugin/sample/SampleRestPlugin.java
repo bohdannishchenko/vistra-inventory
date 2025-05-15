@@ -28,6 +28,7 @@ import javax.json.JsonValue;
 
 import com.google.common.collect.*;
 import com.google.gson.*;
+import com.google.gson.stream.JsonToken;
 import com.google.inject.*;
 import com.squareup.okhttp.*;
 import io.bokun.inventory.plugin.api.rest.*;
@@ -585,19 +586,24 @@ public class SampleRestPlugin {
 
             // Migrate allYearOpeningHours (defaultOpeningHours in JSON)
             if (productJson.containsKey("defaultOpeningHours")) {
-                JsonObject defaultOpeningHoursJson = productJson.getJsonObject("defaultOpeningHours");
-                OpeningHours allYearOpeningHours = new OpeningHours();
+                JsonValue defaultOpeningHoursValue = productJson.getValue("defaultOpeningHours");
                 
-                // Convert each weekday
-                allYearOpeningHours.setMonday(convertWeekdayFromJson(defaultOpeningHoursJson.getJsonObject("monday")));
-                allYearOpeningHours.setTuesday(convertWeekdayFromJson(defaultOpeningHoursJson.getJsonObject("tuesday")));
-                allYearOpeningHours.setWednesday(convertWeekdayFromJson(defaultOpeningHoursJson.getJsonObject("wednesday")));
-                allYearOpeningHours.setThursday(convertWeekdayFromJson(defaultOpeningHoursJson.getJsonObject("thursday")));
-                allYearOpeningHours.setFriday(convertWeekdayFromJson(defaultOpeningHoursJson.getJsonObject("friday")));
-                allYearOpeningHours.setSaturday(convertWeekdayFromJson(defaultOpeningHoursJson.getJsonObject("saturday")));
-                allYearOpeningHours.setSunday(convertWeekdayFromJson(defaultOpeningHoursJson.getJsonObject("sunday")));
-                
-                product.setAllYearOpeningHours(allYearOpeningHours);
+                if (defaultOpeningHoursValue.getValueType() == JsonValue.ValueType.OBJECT) {
+                    JsonObject defaultOpeningHoursJson = productJson.getJsonObject("defaultOpeningHours");
+    
+                    OpeningHours allYearOpeningHours = new OpeningHours();
+                    
+                    // Convert each weekday
+                    allYearOpeningHours.setMonday(convertWeekdayFromJson(defaultOpeningHoursJson.getJsonObject("monday")));
+                    allYearOpeningHours.setTuesday(convertWeekdayFromJson(defaultOpeningHoursJson.getJsonObject("tuesday")));
+                    allYearOpeningHours.setWednesday(convertWeekdayFromJson(defaultOpeningHoursJson.getJsonObject("wednesday")));
+                    allYearOpeningHours.setThursday(convertWeekdayFromJson(defaultOpeningHoursJson.getJsonObject("thursday")));
+                    allYearOpeningHours.setFriday(convertWeekdayFromJson(defaultOpeningHoursJson.getJsonObject("friday")));
+                    allYearOpeningHours.setSaturday(convertWeekdayFromJson(defaultOpeningHoursJson.getJsonObject("saturday")));
+                    allYearOpeningHours.setSunday(convertWeekdayFromJson(defaultOpeningHoursJson.getJsonObject("sunday")));
+                    
+                    product.setAllYearOpeningHours(allYearOpeningHours);
+                }
             }
 
             // Migrate seasonalOpeningHours
@@ -606,29 +612,31 @@ public class SampleRestPlugin {
                 SeasonalOpeningHourSet seasonalOpeningHours = new SeasonalOpeningHourSet();
                 
                 for (JsonValue seasonalValue : seasonalHoursArray) {
-                    JsonObject seasonalJson = (JsonObject) seasonalValue;
                     SeasonalOpeningHours seasonal = new SeasonalOpeningHours();
-                   
-                    OpeningHours openingHours = new OpeningHours();
 
-                    // Convert each weekday
-                    openingHours.setMonday(convertWeekdayFromJson(seasonalJson.getJsonObject("monday")));
-                    openingHours.setTuesday(convertWeekdayFromJson(seasonalJson.getJsonObject("tuesday")));
-                    openingHours.setWednesday(convertWeekdayFromJson(seasonalJson.getJsonObject("wednesday")));
-                    openingHours.setThursday(convertWeekdayFromJson(seasonalJson.getJsonObject("thursday")));
-                    openingHours.setFriday(convertWeekdayFromJson(seasonalJson.getJsonObject("friday")));
-                    openingHours.setSaturday(convertWeekdayFromJson(seasonalJson.getJsonObject("saturday")));
-                    openingHours.setSunday(convertWeekdayFromJson(seasonalJson.getJsonObject("sunday")));
-                    
-                    // Set seasonal dates
-                    seasonal.setStartMonth(seasonalJson.getInt("startMonth", 0));
-                    seasonal.setStartDay(seasonalJson.getInt("startDay", 0));
-                    seasonal.setEndMonth(seasonalJson.getInt("endMonth", 0));
-                    seasonal.setEndDay(seasonalJson.getInt("endDay", 0));
-
-                    seasonal.setOpeningHours(openingHours);
-                    
-                    seasonalOpeningHours.addSeasonalOpeningHoursItem(seasonal);
+                    if (seasonalValue.getValueType() == JsonValue.ValueType.OBJECT) {
+                        JsonObject seasonalJson = (JsonObject) seasonalValue;
+                       
+                        OpeningHours openingHours = new OpeningHours();
+    
+                        // Convert each weekday
+                        openingHours.setMonday(convertWeekdayFromJson(seasonalJson.getJsonObject("monday")));
+                        openingHours.setTuesday(convertWeekdayFromJson(seasonalJson.getJsonObject("tuesday")));
+                        openingHours.setWednesday(convertWeekdayFromJson(seasonalJson.getJsonObject("wednesday")));
+                        openingHours.setThursday(convertWeekdayFromJson(seasonalJson.getJsonObject("thursday")));
+                        openingHours.setFriday(convertWeekdayFromJson(seasonalJson.getJsonObject("friday")));
+                        openingHours.setSaturday(convertWeekdayFromJson(seasonalJson.getJsonObject("saturday")));
+                        openingHours.setSunday(convertWeekdayFromJson(seasonalJson.getJsonObject("sunday")));
+                        
+                        // Set seasonal dates
+                        seasonal.setStartMonth(seasonalJson.getInt("startMonth", 0));
+                        seasonal.setStartDay(seasonalJson.getInt("startDay", 0));
+                        seasonal.setEndMonth(seasonalJson.getInt("endMonth", 0));
+                        seasonal.setEndDay(seasonalJson.getInt("endDay", 0));
+                        seasonal.setOpeningHours(openingHours);
+                        
+                        seasonalOpeningHours.addSeasonalOpeningHoursItem(seasonal);
+                    }                    
                 }
                 
                 product.setSeasonalOpeningHours(seasonalOpeningHours);
