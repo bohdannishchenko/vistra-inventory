@@ -720,10 +720,17 @@ public class SampleRestPlugin {
                                     JsonObject unLocodeObject = addressJson.getJsonObject("unLocode");
                                     UnLocode unLocode = new UnLocode();
 
-                                    unLocode.setCountry(unLocodeObject.getString("country", null));
-                                    unLocode.setCity(unLocodeObject.getString("city", null));
+                                    if (!unLocodeObject.getString("country", "").isEmpty())
+                                    {
+                                        unLocode.setCountry(unLocodeObject.getString("country"));
+                                    }
+
+                                    if (!unLocodeObject.getString("city", "").isEmpty()) {
+                                        unLocode.setCity(unLocodeObject.getString("city"));
+                                    }
         
-                                    address.setUnLocode(unLocode);
+                                    if (unLocode.getCountry() != null && unLocode.getCity() != null)
+                                        address.setUnLocode(unLocode);
                                 }
         
                                 place.setAddress(address);
