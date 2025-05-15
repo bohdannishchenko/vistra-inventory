@@ -881,6 +881,9 @@ public class SampleRestPlugin {
             try {
                 if (connection.getResponseCode() == 200) {
                     ProductDescription product = parseProductDescription(connection.getInputStream());
+
+                    log.trace(new Gson().toJson(product));
+
                     exchange.getResponseHeaders().put(CONTENT_TYPE, "application/json");
                     exchange.getResponseSender().send(new Gson().toJson(product));
                 } else {
