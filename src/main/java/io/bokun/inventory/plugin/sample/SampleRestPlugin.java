@@ -1147,7 +1147,8 @@ public class SampleRestPlugin {
                                     if (!pricePerPerson.getPricingCategoryWithPrice().isEmpty())
                                         rateWithPrice.setPricePerPerson(pricePerPerson);
 
-                                    rates.add(rateWithPrice);
+                                    if (rateWithPrice.getPricePerBooking() != null || rateWithPrice.getPricePerPerson() != null)
+                                        rates.add(rateWithPrice);
                                 }
 
                                 response.setRates(rates);
